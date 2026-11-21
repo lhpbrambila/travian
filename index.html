@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -27,13 +26,13 @@
 
   <script>
     // ========================================================================
-    // TRAVIAN IDLE V1.1 — VERSÃO HTML AUTÔNOMA PARA PRÉVIA E GOOGLE SITES
-    // Mapa 151x151 (-75 a +75), Janela 7x7, Radar Global, Quartel, Colonização,
-    // IA Reativa, Áudio Web Audio API e Save/Export Base64.
+    // TRAVIAN IDLE V1.2 — VERSÃO HTML COMPLETA PARA PRÉVIA E GOOGLE SITES
+    // Mapa 151x151 (-75 a +75), Spawn Aleatório, Paz de 21 Dias, Densidade
+    // Equilibrada de Inimigos, Tempo Progressivo nos Campos e Save Base64.
     // ========================================================================
 
     (function () {
-      const STORAGE_KEY = 'travian_idle_v1_1_html_save';
+      const STORAGE_KEY = 'travian_idle_v1_2_html_save';
       const DEFAULT_SEED = 'TERRA-MEDIA-01';
       const PEACE_PERIOD_MS = 21 * 24 * 60 * 60 * 1000;
       const MAP_MIN = -75;
@@ -266,7 +265,48 @@
         'Posto Avançado Bárbaro',
       ];
 
-      // Web Audio API (sem dependências externas de som)
+      // ======================================================================
+      // HELPERS DE INICIALIZAÇÃO DE ALDEIA, CAMPOS, SLOTS E TROPAS
+      // ======================================================================
+      function makeFields(dist) {
+        if (!dist) {
+          return FIELD_POSITIONS.map((p) => ({ id: p.id, type: p.type, level: 0 }));
+        }
+        const types = [];
+        for (let i = 0; i < (dist.wood || 4); i++) types.push('wood');
+        for (let i = 0; i < (dist.clay || 4); i++) types.push('clay');
+        for (let i = 0; i < (dist.iron || 4); i++) types.push('iron');
+        for (let i = 0; i < (dist.crop || 6); i++) types.push('crop');
+        while (types.length < 18) types.push('crop');
+        return FIELD_POSITIONS.map((p, idx) => ({
+          id: p.id,
+          type: types[idx] || p.type,
+          level: 0,
+        }));
+      }
+
+      function makeSlots() {
+        return Array.from({ length: 12 }, (_, idx) => ({
+          id: idx + 1,
+          buildingType: idx === 0 ? 'main_building' : null,
+          level: idx === 0 ? 1 : 0,
+        }));
+      }
+
+      function makeTroops(partial) {
+        const p = partial || {};
+        return {
+          legionnaire: Number(p.legionnaire) || 0,
+          spearman: Number(p.spearman) || 0,
+          equites: Number(p.equites) || 0,
+          scout: Number(p.scout) || 0,
+          settler: Number(p.settler) || 0,
+        };
+      }
+
+      // ======================================================================
+      // MOTOR DE ÁUDIO SINTETIZADO (WEB AUDIO API)
+      // ======================================================================
       const sfx = (() => {
         let ctx = null;
         return {
@@ -301,7 +341,9 @@
         };
       })();
 
-      // FNV-1a + Mulberry32 determinístico
+      // ======================================================================
+      // GERADOR DETERMINÍSTICO DE MAPA (FNV-1a + MULBERRY32)
+      // ======================================================================
       function hashSeed(str) {
         let h = 2166136261 >>> 0;
         for (let i = 0; i < str.length; i++) {
@@ -326,6 +368,7 @@
         const roll = rng();
         const dist = Math.hypot(x, y);
 
+        // ~18% Oásis Selvagens
         if (roll < 0.18) {
           const rRoll = rng();
           const resource =
@@ -345,6 +388,7 @@
           };
         }
 
+        // ~9% Aldeias Bárbaras / IA (densidade reduzida na v1.2)
         if (roll < 0.27) {
           const level = Math.min(15, Math.max(1, Math.floor(dist / 6) + Math.floor(rng() * 2) + 1));
           const mult = 0.75 + level * 0.48;
@@ -367,6 +411,7 @@
           };
         }
 
+        // ~73% Vales Abandonados
         const vRoll = rng();
         let distCfg = { wood: 4, clay: 4, iron: 4, crop: 6, label: '4-4-4-6', rare: false };
         if (vRoll < 0.05) distCfg = { wood: 1, clay: 1, iron: 1, crop: 15, label: '15-Cereais', rare: true };
@@ -564,6 +609,9 @@
         return { unlocked, canBuild, reason, reqStatus };
       }
 
+      // ======================================================================
+      // MOTOR DE SIMULAÇÃO EM TEMPO REAL E PROGRESSO OFFLINE
+      // ======================================================================
       function stepSimulation(prev, targetNow) {
         const elapsedMs = Math.max(0, targetNow - prev.lastUpdated) * prev.timeScale;
         if (elapsedMs <= 0) return { state: { ...prev, lastUpdated: targetNow }, event: null };
@@ -615,7 +663,7 @@
                 title: `${colName} (${m.targetX}|${m.targetY})`,
                 kind: 'settle',
                 outcome: 'victory',
-                info: `Nova aldeia fundada com sucesso! Selecione-a no topo para alternar.`,
+                info: 'Nova aldeia fundada com sucesso! Selecione-a no topo para alternar.',
               });
               event = { sound: 'victory', toast: `Nova aldeia fundada: ${colName}!` };
               continue;
@@ -705,7 +753,7 @@
         }
         marches = keptMarches;
 
-        // IA Reativa: contra-ataques bárbaros
+        // IA Reativa: contra-ataques bárbaros (respeita paz de 21 dias)
         const keptInc = [];
         for (const a of incoming) {
           if (endCursor >= a.impactsAt) {
@@ -814,7 +862,9 @@
         };
       }
 
-      // Estado da UI
+      // ======================================================================
+      // INICIALIZAÇÃO DO SAVE & ESTADO DA INTERFACE
+      // ======================================================================
       let state = createInitialState();
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -1059,11 +1109,11 @@
               <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h2 class="font-bold text-stone-800 text-base">Mapa Densificado 151×151 (${cx} | ${cy})</h2>
-                    <p class="text-xs text-stone-500">Janela local 7×7 • Coordenadas de -75 a +75</p>
+                    <h2 class="font-bold text-stone-800 text-base">Mapa 151×151 (${cx} | ${cy})</h2>
+                    <p class="text-xs text-stone-500">Sua aldeia em (${v.x}|${v.y}) • Janela local 7×7</p>
                   </div>
                   <div class="flex items-center gap-1">
-                    <button id="mapHome" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold cursor-pointer">📍 Aldeia</button>
+                    <button id="mapHome" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold cursor-pointer">📍 Minha Aldeia</button>
                   </div>
                 </div>
 
@@ -1682,4 +1732,3 @@
   </script>
 </body>
 </html>
-```
