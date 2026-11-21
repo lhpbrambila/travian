@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travian Idle v1.2 — Estratégia &amp; Colonização</title>
+  <title>Travian Idle v1.2 — GitHub Pages</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,13 +26,13 @@
 
   <script>
     // ========================================================================
-    // TRAVIAN IDLE V1.2 — VERSÃO HTML COMPLETA PARA PRÉVIA E GOOGLE SITES
+    // TRAVIAN IDLE V1.2 — VERSÃO ESTÁTICA COMPLETA PARA GITHUB PAGES
     // Mapa 151x151 (-75 a +75), Spawn Aleatório, Paz de 21 Dias, Densidade
-    // Equilibrada de Inimigos, Tempo Progressivo nos Campos e Save Base64.
+    // Equilibrada de Inimigos, Colonização de Vales Abandonados e Save Base64.
     // ========================================================================
 
     (function () {
-      const STORAGE_KEY = 'travian_idle_v1_2_html_save';
+      const STORAGE_KEY = 'travian_idle_v1_2_ghpages_save';
       const DEFAULT_SEED = 'TERRA-MEDIA-01';
       const PEACE_PERIOD_MS = 21 * 24 * 60 * 60 * 1000;
       const MAP_MIN = -75;
@@ -663,7 +663,7 @@
                 title: `${colName} (${m.targetX}|${m.targetY})`,
                 kind: 'settle',
                 outcome: 'victory',
-                info: 'Nova aldeia fundada com sucesso! Selecione-a no topo para alternar.',
+                info: `Nova aldeia fundada com sucesso (${tile.valley.label})! Selecione-a no topo para alternar.`,
               });
               event = { sound: 'victory', toast: `Nova aldeia fundada: ${colName}!` };
               continue;
@@ -1369,7 +1369,10 @@
         const t = ui.inspectedTile;
         const dist = Math.hypot(t.x - v.x, t.y - v.y).toFixed(1);
         const isPeace = now < (state.peaceEndsAt || 0);
-        const canSettle = t.type === 'valley' && v.troops.settler >= 3;
+        const resLvl = v.slots.filter((s) => s.buildingType === 'residence').reduce((m, s) => Math.max(m, s.level), 0);
+        const hasRes = resLvl >= 5;
+        const hasSettlers = v.troops.settler >= 3;
+        const canSettle = t.type === 'valley' && hasSettlers;
         const canAttack = !isPeace && (t.type === 'barbarian' || t.type === 'oasis') && (v.troops.legionnaire > 0 || v.troops.equites > 0 || v.troops.spearman > 0);
 
         return `
@@ -1382,15 +1385,32 @@
               <div class="p-5 space-y-3 text-xs">
                 ${t.type === 'barbarian' ? `<p class="text-stone-700">Recuperação atual: <strong>${Math.round(getRegen(state.barbarianStates, t.x, t.y, now) * 100)}%</strong> • Saque estimado: ~${t.barbarian.loot.wood} Mad, ~${t.barbarian.loot.clay} Bar, ~${t.barbarian.loot.iron} Fer, ~${t.barbarian.loot.crop} Cer.</p>` : ''}
                 ${t.type === 'oasis' ? `<p class="text-teal-900 font-semibold">Conquistar este oásis adiciona ${t.oasis.label} à aldeia ativa.</p>` : ''}
-                ${t.type === 'valley' ? `<p class="text-stone-700">Colonizadores disponíveis na aldeia: <strong>${v.troops.settler}/3</strong>.</p>` : ''}
                 ${
-                  isPeace && (t.type === 'barbarian' || t.type === 'oasis')
-                    ? `<div class="p-2.5 rounded-xl bg-sky-50 border border-sky-300 text-sky-900 font-semibold">🕊️ Período de paz de 21 dias ativo: ataques e conquistas estão bloqueados.</div>`
+                  t.type === 'valley'
+                    ? `<div class="space-y-2.5">
+                        <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                          <strong>Terreno Neutro:</strong> Vales abandonados não são bloqueados pelo período de paz e podem ser colonizados para formar uma nova aldeia com estes 18 campos:
+                        </div>
+                        <div class="grid grid-cols-4 gap-1.5 text-center font-bold">
+                          <div class="p-2 rounded-lg bg-emerald-100 text-emerald-900">🌲 ${t.valley.wood} Mad</div>
+                          <div class="p-2 rounded-lg bg-orange-100 text-orange-900">🧱 ${t.valley.clay} Bar</div>
+                          <div class="p-2 rounded-lg bg-slate-200 text-slate-900">⛏️ ${t.valley.iron} Fer</div>
+                          <div class="p-2 rounded-lg bg-amber-100 text-amber-900">🌾 ${t.valley.crop} Cer</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1">
+                          <div class="font-bold text-stone-800">Requisitos para Fundar Nova Aldeia:</div>
+                          <div class="${hasRes ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${hasRes ? '✓' : '✗'} Residência Nv. 5+ (Atual: Nv.${resLvl})</div>
+                          <div class="${hasSettlers ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${hasSettlers ? '✓' : '✗'} 3 Colonizadores treinados no Quartel (Atual: ${v.troops.settler}/3)</div>
+                        </div>
+                        <button id="btnSettleHere" ${canSettle ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canSettle ? 'bg-purple-700 hover:bg-purple-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                          ${canSettle ? '🚩 Enviar 3 Colonizadores e Fundar Aldeia' : 'Treine 3 Colonizadores para Fundar'}
+                        </button>
+                      </div>`
                     : ''
                 }
                 ${
-                  canSettle
-                    ? `<button id="btnSettleHere" class="w-full py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-bold cursor-pointer">🚩 Enviar 3 Colonizadores e Fundar Aldeia</button>`
+                  isPeace && (t.type === 'barbarian' || t.type === 'oasis')
+                    ? `<div class="p-2.5 rounded-xl bg-sky-50 border border-sky-300 text-sky-900 font-semibold">🕊️ Período de paz de 21 dias ativo: ataques e conquistas estão bloqueados.</div>`
                     : ''
                 }
                 ${
@@ -1606,6 +1626,7 @@
         if (btnSettle) {
           btnSettle.onclick = () => {
             const t = ui.inspectedTile;
+            if (!t || t.type !== 'valley' || v.troops.settler < 3) return;
             const dist = Math.hypot(t.x - v.x, t.y - v.y);
             const travelMs = Math.max(4000, Math.round(((Math.max(1, dist) / 10) * 3600000) / state.timeScale));
             v.troops.settler -= 3;
