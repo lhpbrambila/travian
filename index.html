@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travian Idle v1.4.0 — Cloud Save (Supabase)</title>
+  <title>Travian Idle v1.4.1 — Cloud Save (Supabase)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,7 +32,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
 
     // ========================================================================
-    // TRAVIAN IDLE V1.4.0 — 24 SLOTS, MERCADO, ALIANÇAS, NOVAS TROPAS + CLOUD
+    // TRAVIAN IDLE V1.4.1 — VELOCIDADE FIXA 1X, 24 SLOTS, MERCADO E ALIANÇAS
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
@@ -665,7 +665,6 @@
           alliance: null,
           reports: [],
           soundEnabled: true,
-          timeScale: 1,
           lastUpdated: now,
         };
       }
@@ -827,11 +826,11 @@
       }
 
       // ======================================================================
-      // MOTOR DE SIMULAÇÃO EM TEMPO REAL E PROGRESSO OFFLINE
+      // MOTOR DE SIMULAÇÃO EM TEMPO REAL (VELOCIDADE FIXA 1X)
       // ======================================================================
       function stepSimulation(prev, targetNow) {
-        const elapsedMs = Math.max(0, targetNow - prev.lastUpdated) * prev.timeScale;
-        if (elapsedMs <= 0) return { state: { ...prev, lastUpdated: targetNow }, event: null };
+        const elapsedMs = Math.max(0, targetNow - prev.lastUpdated);
+        if (elapsedMs <= 0) return { state: { ...prev, timeScale: 1, lastUpdated: targetNow }, event: null };
         const endCursor = prev.lastUpdated + elapsedMs;
 
         const villages = prev.villages.map((v) => ({
@@ -1115,6 +1114,7 @@
             tradeCaravans: caravans,
             alliance,
             reports: reports.slice(0, 30),
+            timeScale: 1,
             lastUpdated: targetNow,
           },
           event,
@@ -1133,6 +1133,7 @@
             if (typeof parsed.peaceEndsAt !== 'number') parsed.peaceEndsAt = 0;
             if (!Array.isArray(parsed.tradeCaravans)) parsed.tradeCaravans = [];
             if (parsed.alliance === undefined) parsed.alliance = null;
+            parsed.timeScale = 1;
             state = stepSimulation(parsed, Date.now()).state;
           }
         }
@@ -1253,6 +1254,7 @@
               if (typeof cloudState.peaceEndsAt !== 'number') cloudState.peaceEndsAt = 0;
               if (!Array.isArray(cloudState.tradeCaravans)) cloudState.tradeCaravans = [];
               if (cloudState.alliance === undefined) cloudState.alliance = null;
+              cloudState.timeScale = 1;
               state = stepSimulation(cloudState, Date.now()).state;
               const av = getActiveVillage();
               ui.mapCenter = { x: av.x, y: av.y };
@@ -1419,7 +1421,7 @@
             <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.0</span>
+                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.1</span>
                   ${
                     state.alliance
                       ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200 text-[11px] font-extrabold">[${state.alliance.tag}] Nv.${state.alliance.level}</span>`
@@ -1446,9 +1448,6 @@
                   ${cloudBadge}
                   <button id="btnSound" class="px-2 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-xs font-bold cursor-pointer">
                     ${state.soundEnabled ? '🔊' : '🔇'}
-                  </button>
-                  <button id="btnSpeed" class="px-2 py-1.5 rounded-lg border text-xs font-bold cursor-pointer ${state.timeScale > 1 ? 'bg-amber-600 text-white border-amber-400' : 'bg-stone-800 text-stone-300 border-stone-600'}">
-                    ⏩ ${state.timeScale}x
                   </button>
                   <button id="btnSave" class="px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-amber-200 text-xs font-bold cursor-pointer">
                     💾 Save
@@ -2322,13 +2321,6 @@
           render();
         };
 
-        document.getElementById('btnSpeed').onclick = () => {
-          const scales = [1, 5, 20, 60];
-          state.timeScale = scales[(scales.indexOf(state.timeScale) + 1) % scales.length];
-          saveNow();
-          render();
-        };
-
         document.getElementById('btnSave').onclick = () => {
           ui.saveText = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
           ui.showSave = true;
@@ -2392,7 +2384,7 @@
             v.resources = subRes(v.resources, cargo);
             const dist = Math.hypot(dest.x - v.x, dest.y - v.y);
             const bonusSpd = 1 + getAllianceBonuses(state.alliance).merchantPct / 100;
-            const travelMs = Math.max(3000, Math.round(((Math.max(1, dist) / (20 * bonusSpd)) * 3600000) / state.timeScale));
+            const travelMs = Math.max(3000, Math.round((Math.max(1, dist) / (20 * bonusSpd)) * 3600000));
             state.tradeCaravans = state.tradeCaravans || [];
             state.tradeCaravans.push({
               id: `car_${Date.now()}`,
@@ -2671,7 +2663,7 @@
             const t = ui.inspectedTile;
             if (!t || t.type !== 'valley' || v.troops.settler < 3) return;
             const dist = Math.hypot(t.x - v.x, t.y - v.y);
-            const travelMs = Math.max(4000, Math.round(((Math.max(1, dist) / 10) * 3600000) / state.timeScale));
+            const travelMs = Math.max(4000, Math.round((Math.max(1, dist) / 10) * 3600000));
             v.troops.settler -= 3;
             state.marches.push({
               id: `m_${Date.now()}`,
@@ -2717,7 +2709,7 @@
             v.troops.scout = 0;
             v.troops.catapult = 0;
             const dist = Math.hypot(t.x - v.x, t.y - v.y);
-            const travelMs = Math.max(4000, Math.round(((Math.max(1, dist) / 14) * 3600000) / state.timeScale));
+            const travelMs = Math.max(4000, Math.round((Math.max(1, dist) / 14) * 3600000));
             state.marches.push({
               id: `m_${Date.now()}`,
               originVillageId: v.id,
