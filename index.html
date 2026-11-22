@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travian Idle v1.3 — Cloud Save (Supabase)</title>
+  <title>Travian Idle v1.3.2 — Cloud Save (Supabase)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SDK Oficial do Supabase via CDN (100% compatível com GitHub Pages) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -28,16 +26,17 @@
 
   <script>
     // ========================================================================
-    // CONFIGURAÇÃO DO SUPABASE (100% GRATUITO - SEM CARTÃO E SEM GOOGLE CLOUD)
+    // CONFIGURAÇÃO DO SUPABASE (100% GRATUITO - REST NATIVO COMPATÍVEL MOBILE)
     // ========================================================================
-    const SUPABASE_URL = 'https://bxitavskyvcgydbfyhml.supabase.co';
+    const SUPABASE_URL = 'https://eoydtyvtumsbnbgyyswx.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
 
     // ========================================================================
-    // TRAVIAN IDLE V1.3 — VERSÃO GITHUB PAGES + CLOUD SAVE SUPABASE
+    // TRAVIAN IDLE V1.3.2 — VERSÃO GITHUB PAGES + CLOUD SAVE MOBILE/PC
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
+      const SESSION_KEY = 'travian_idle_v1_3_sb_session';
       const DEFAULT_SEED = 'TERRA-MEDIA-01';
       const PEACE_PERIOD_MS = 21 * 24 * 60 * 60 * 1000;
       const MAP_MIN = -75;
@@ -271,23 +270,85 @@
       ];
 
       // ======================================================================
-      // CLIENTE SUPABASE & SINCRONIZAÇÃO NA NUVEM
+      // CLIENTE REST NATIVO DO SUPABASE (SEM DEPENDÊNCIA EXTERNA DE CDN)
       // ======================================================================
       const isSupabaseConfigured =
-        typeof window.supabase !== 'undefined' &&
         SUPABASE_URL.startsWith('https://') &&
-        !SUPABASE_URL.includes('COLE_AQUI');
-
-      const sb = isSupabaseConfigured
-        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        : null;
+        !SUPABASE_URL.includes('COLE_AQUI') &&
+        SUPABASE_ANON_KEY.length > 15;
 
       let cloud = {
         user: null,
-        status: isSupabaseConfigured ? 'disconnected' : 'unconfigured', // 'unconfigured' | 'disconnected' | 'syncing' | 'synced' | 'error'
+        accessToken: null,
+        refreshToken: null,
+        status: isSupabaseConfigured ? 'disconnected' : 'unconfigured',
         lastSyncedAt: null,
+        lastError: '',
         dirty: false,
       };
+
+      function saveSessionToStorage() {
+        try {
+          if (cloud.user && cloud.accessToken) {
+            localStorage.setItem(
+              SESSION_KEY,
+              JSON.stringify({
+                user: cloud.user,
+                accessToken: cloud.accessToken,
+                refreshToken: cloud.refreshToken,
+              })
+            );
+          } else {
+            localStorage.removeItem(SESSION_KEY);
+          }
+        } catch (_) {}
+      }
+
+      async function sbRestFetch(path, options = {}) {
+        const headers = {
+          apikey: SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        };
+        if (options.token) {
+          headers['Authorization'] = `Bearer ${options.token}`;
+        }
+        const res = await fetch(`${SUPABASE_URL}${path}`, {
+          method: options.method || 'GET',
+          headers,
+          body: options.body ? JSON.stringify(options.body) : undefined,
+        });
+        const text = await res.text();
+        let json = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch (_) {}
+        if (!res.ok) {
+          const msg =
+            (json && (json.msg || json.message || json.error_description || json.error)) ||
+            `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        return json;
+      }
+
+      async function refreshCloudSession() {
+        if (!cloud.refreshToken) return false;
+        try {
+          const data = await sbRestFetch('/auth/v1/token?grant_type=refresh_token', {
+            method: 'POST',
+            body: { refresh_token: cloud.refreshToken },
+          });
+          if (data && data.access_token && data.user) {
+            cloud.user = data.user;
+            cloud.accessToken = data.access_token;
+            cloud.refreshToken = data.refresh_token || cloud.refreshToken;
+            saveSessionToStorage();
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      }
 
       // ======================================================================
       // HELPERS DE INICIALIZAÇÃO DE ALDEIA, CAMPOS, SLOTS E TROPAS
@@ -887,7 +948,7 @@
       }
 
       // ======================================================================
-      // INICIALIZAÇÃO DO SAVE LOCAL + SINCRONIZAÇÃO SUPABASE
+      // INICIALIZAÇÃO DO SAVE LOCAL + SINCRONIZAÇÃO SUPABASE REST
       // ======================================================================
       let state = createInitialState();
       try {
@@ -922,7 +983,7 @@
         setTimeout(() => {
           ui.toast = null;
           render();
-        }, 3200);
+        }, 4200);
       }
 
       function getActiveVillage() {
@@ -936,7 +997,7 @@
       }
 
       async function pushCloudSave(forceToast = false) {
-        if (!sb || !cloud.user) return;
+        if (!isSupabaseConfigured || !cloud.user || !cloud.accessToken) return;
         cloud.status = 'syncing';
         if (forceToast) render();
         try {
@@ -945,66 +1006,89 @@
             game_data: state,
             updated_at: new Date().toISOString(),
           };
-          const { error } = await sb.from('player_saves').upsert(payload, { onConflict: 'user_id' });
-          if (error) throw error;
+          try {
+            await sbRestFetch('/rest/v1/player_saves?on_conflict=user_id', {
+              method: 'POST',
+              token: cloud.accessToken,
+              headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+              body: payload,
+            });
+          } catch (firstErr) {
+            const refreshed = await refreshCloudSession();
+            if (!refreshed) throw firstErr;
+            await sbRestFetch('/rest/v1/player_saves?on_conflict=user_id', {
+              method: 'POST',
+              token: cloud.accessToken,
+              headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+              body: payload,
+            });
+          }
           cloud.status = 'synced';
           cloud.lastSyncedAt = Date.now();
+          cloud.lastError = '';
           cloud.dirty = false;
-          if (forceToast) setToast('Progresso salvo na nuvem (Supabase)!');
+          if (forceToast) setToast('Progresso salvo na nuvem!');
         } catch (err) {
-          console.error('Erro ao salvar no Supabase:', err);
           cloud.status = 'error';
-          if (forceToast) setToast('Erro ao salvar na nuvem. Verifique a tabela player_saves.', true);
+          cloud.lastError = err.message || 'Erro desconhecido';
+          if (forceToast) setToast('Erro ao salvar na nuvem: ' + cloud.lastError, true);
         }
         render();
       }
 
-      async function pullCloudSave(user) {
-        if (!sb || !user) return;
+      async function pullCloudSave(forceToast = false) {
+        if (!isSupabaseConfigured || !cloud.user || !cloud.accessToken) return;
         cloud.status = 'syncing';
         render();
         try {
-          const { data, error } = await sb
-            .from('player_saves')
-            .select('game_data, updated_at')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          let rows = null;
+          try {
+            rows = await sbRestFetch(
+              `/rest/v1/player_saves?user_id=eq.${encodeURIComponent(cloud.user.id)}&select=game_data,updated_at`,
+              { method: 'GET', token: cloud.accessToken }
+            );
+          } catch (firstErr) {
+            const refreshed = await refreshCloudSession();
+            if (!refreshed) throw firstErr;
+            rows = await sbRestFetch(
+              `/rest/v1/player_saves?user_id=eq.${encodeURIComponent(cloud.user.id)}&select=game_data,updated_at`,
+              { method: 'GET', token: cloud.accessToken }
+            );
+          }
 
-          if (error) throw error;
-
-          if (data && data.game_data && Array.isArray(data.game_data.villages) && data.game_data.villages.length > 0) {
-            const cloudState = data.game_data;
+          const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+          if (row && row.game_data && Array.isArray(row.game_data.villages) && row.game_data.villages.length > 0) {
+            const cloudState = row.game_data;
             const localLvls = state.villages.reduce((acc, vl) => acc + vl.fields.reduce((s, f) => s + f.level, 0), 0);
             const cloudLvls = cloudState.villages.reduce((acc, vl) => acc + vl.fields.reduce((s, f) => s + f.level, 0), 0);
 
-            // Usa o save da nuvem se for mais avançado ou mais recente que o local
-            if (cloudLvls > 0 || localLvls === 0 || (cloudState.lastUpdated || 0) >= (state.lastUpdated || 0)) {
+            if (forceToast || cloudLvls > 0 || localLvls === 0 || (cloudState.lastUpdated || 0) >= (state.lastUpdated || 0)) {
               if (typeof cloudState.peaceEndsAt !== 'number') cloudState.peaceEndsAt = 0;
               state = stepSimulation(cloudState, Date.now()).state;
               const av = getActiveVillage();
               ui.mapCenter = { x: av.x, y: av.y };
               saveLocal();
-              setToast('Progresso restaurado da sua conta na nuvem!');
+              setToast('Progresso restaurado da nuvem!');
             } else {
               await pushCloudSave(false);
             }
           } else {
-            // Primeira vez logando: envia o save atual do navegador para a nuvem
             await pushCloudSave(false);
           }
           cloud.status = 'synced';
           cloud.lastSyncedAt = Date.now();
+          cloud.lastError = '';
         } catch (err) {
-          console.error('Erro ao carregar do Supabase:', err);
           cloud.status = 'error';
-          setToast('Falha ao sincronizar com Supabase. Verifique se criou a tabela player_saves.', true);
+          cloud.lastError = err.message || 'Falha ao sincronizar';
+          setToast('Falha ao carregar da nuvem: ' + cloud.lastError, true);
         }
         render();
       }
 
       async function signInWithEmail(email, password) {
-        if (!sb) {
-          setToast('Cole sua Publishable Key do Supabase no topo do index.html.', true);
+        if (!isSupabaseConfigured) {
+          setToast('Configure a chave do Supabase no topo do index.html.', true);
           return;
         }
         if (!email || !password) {
@@ -1012,21 +1096,36 @@
           return;
         }
         ui.authLoading = true;
+        cloud.lastError = '';
         render();
-        const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
-        ui.authLoading = false;
-        if (error) {
-          setToast('Erro ao entrar: ' + error.message, true);
-        } else {
-          ui.showSave = false;
-          setToast('Login realizado! Sincronizando save...');
+        try {
+          const data = await sbRestFetch('/auth/v1/token?grant_type=password', {
+            method: 'POST',
+            body: { email: email.trim(), password },
+          });
+          ui.authLoading = false;
+          if (data && data.access_token && data.user) {
+            cloud.user = data.user;
+            cloud.accessToken = data.access_token;
+            cloud.refreshToken = data.refresh_token || null;
+            saveSessionToStorage();
+            ui.showSave = false;
+            setToast('Conectado! Carregando seu save...');
+            await pullCloudSave(false);
+          } else {
+            setToast('Resposta inesperada ao entrar.', true);
+          }
+        } catch (err) {
+          ui.authLoading = false;
+          cloud.lastError = err.message || 'Failed to fetch';
+          setToast(`Erro ao entrar (${cloud.lastError}).`, true);
         }
         render();
       }
 
       async function signUpWithEmail(email, password) {
-        if (!sb) {
-          setToast('Cole sua Publishable Key do Supabase no topo do index.html.', true);
+        if (!isSupabaseConfigured) {
+          setToast('Configure a chave do Supabase no topo do index.html.', true);
           return;
         }
         if (!email || password.length < 6) {
@@ -1034,25 +1133,39 @@
           return;
         }
         ui.authLoading = true;
+        cloud.lastError = '';
         render();
-        const { data, error } = await sb.auth.signUp({ email: email.trim(), password });
-        ui.authLoading = false;
-        if (error) {
-          setToast('Erro ao criar conta: ' + error.message, true);
-        } else if (data.session) {
-          ui.showSave = false;
-          setToast('Conta criada e conectada! Salvando progresso na nuvem...');
-        } else {
-          setToast('Conta criada! Verifique seu e-mail ou desative "Confirm email" no Supabase.');
+        try {
+          const data = await sbRestFetch('/auth/v1/signup', {
+            method: 'POST',
+            body: { email: email.trim(), password },
+          });
+          ui.authLoading = false;
+          if (data && data.access_token && data.user) {
+            cloud.user = data.user;
+            cloud.accessToken = data.access_token;
+            cloud.refreshToken = data.refresh_token || null;
+            saveSessionToStorage();
+            ui.showSave = false;
+            setToast('Conta criada e conectada! Salvando progresso...');
+            await pushCloudSave(false);
+          } else {
+            setToast('Conta criada! Desative "Confirm email" no Supabase e clique em Entrar.');
+          }
+        } catch (err) {
+          ui.authLoading = false;
+          cloud.lastError = err.message || 'Failed to fetch';
+          setToast(`Erro ao criar conta (${cloud.lastError}).`, true);
         }
         render();
       }
 
-      async function logoutAccount() {
-        if (!sb) return;
-        await sb.auth.signOut();
+      function logoutAccount() {
         cloud.user = null;
+        cloud.accessToken = null;
+        cloud.refreshToken = null;
         cloud.status = 'disconnected';
+        saveSessionToStorage();
         setToast('Você saiu da sua conta.');
       }
 
@@ -1064,19 +1177,19 @@
         }
       }
 
-      if (sb) {
-        sb.auth.onAuthStateChange((_event, session) => {
-          const nextUser = session ? session.user : null;
-          const changed = (nextUser?.id || null) !== (cloud.user?.id || null);
-          cloud.user = nextUser;
-          if (nextUser && changed) {
-            pullCloudSave(nextUser);
-          } else if (!nextUser) {
-            cloud.status = 'disconnected';
-            render();
+      // Restaura sessão salva no aparelho automaticamente ao abrir
+      try {
+        const savedSess = localStorage.getItem(SESSION_KEY);
+        if (savedSess && isSupabaseConfigured) {
+          const parsedSess = JSON.parse(savedSess);
+          if (parsedSess && parsedSess.user && parsedSess.accessToken) {
+            cloud.user = parsedSess.user;
+            cloud.accessToken = parsedSess.accessToken;
+            cloud.refreshToken = parsedSess.refreshToken || null;
+            setTimeout(() => pullCloudSave(false), 300);
           }
-        });
-      }
+        }
+      } catch (_) {}
 
       // ======================================================================
       // RENDERIZAÇÃO DA INTERFACE
@@ -1105,11 +1218,11 @@
           : cloud.user
           ? `<button id="btnCloudMenu" class="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
                <span>${cloud.status === 'syncing' ? '🔄' : cloud.status === 'error' ? '⚠️' : '☁️'}</span>
-               <span class="max-w-[120px] truncate">${cloud.user.email || 'Conectado'}</span>
+               <span class="max-w-[110px] truncate">${cloud.user.email || 'Conectado'}</span>
              </button>`
           : `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer">
                <span>☁️</span>
-               <span>Entrar / Salvar Nuvem</span>
+               <span>Entrar / Nuvem</span>
              </button>`;
 
         root.innerHTML = `
@@ -1117,7 +1230,7 @@
             <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.3</span>
+                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.3.2</span>
                   ${
                     state.villages.length > 1
                       ? `<select id="villageSelect" class="bg-stone-800 border border-amber-500/60 text-amber-100 font-bold text-xs sm:text-sm rounded-lg px-2 py-1">
@@ -1613,7 +1726,7 @@
         const lastSyncStr = cloud.lastSyncedAt ? new Date(cloud.lastSyncedAt).toLocaleTimeString('pt-BR') : 'Ainda não sincronizado';
         return `
           <div id="saveModalBg" class="fixed inset-0 z-50 bg-stone-950/70 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full border border-stone-300 shadow-2xl overflow-hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full border border-stone-300 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
               <div class="px-5 py-3.5 bg-stone-900 text-white flex items-center justify-between">
                 <h3 class="font-bold text-base">Conta na Nuvem (Supabase) &amp; Save</h3>
                 <button id="closeSaveModal" class="text-stone-400 hover:text-white text-lg font-bold cursor-pointer">✕</button>
@@ -1623,7 +1736,7 @@
                   ${
                     !isSupabaseConfigured
                       ? `<div class="font-bold text-amber-900">⚠️ Falta apenas colar a Publishable Key</div>
-                         <p class="text-stone-600">Abra o <code>index.html</code> e cole sua chave <code>sb_publishable_...</code> na linha 27 (<code>SUPABASE_ANON_KEY</code>).</p>`
+                         <p class="text-stone-600">Abra o <code>index.html</code> e cole sua chave <code>sb_publishable_...</code> na linha 26.</p>`
                       : cloud.user
                       ? `<div class="flex items-center justify-between">
                            <div>
@@ -1633,15 +1746,23 @@
                            </div>
                            <button id="btnLogoutAccount" class="px-2.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 font-bold cursor-pointer">Sair</button>
                          </div>
-                         <button id="btnForceSync" class="w-full py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer">🔄 Salvar na Nuvem Agora</button>`
+                         <div class="grid grid-cols-2 gap-2">
+                           <button id="btnForceSync" class="py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer">⬆️ Enviar p/ Nuvem</button>
+                           <button id="btnPullSync" class="py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white font-bold cursor-pointer">⬇️ Baixar da Nuvem</button>
+                         </div>`
                       : `<div class="font-bold text-stone-900 text-sm">Salvar progresso na nuvem (Grátis)</div>
-                         <p class="text-stone-600">Crie uma conta rápida com e-mail e senha para nunca mais perder sua aldeia se o navegador limpar o cache.</p>
-                         <input id="authEmailInput" type="email" placeholder="Seu e-mail" value="${ui.authEmail}" class="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs" />
-                         <input id="authPassInput" type="password" placeholder="Sua senha (mín. 6 caracteres)" value="${ui.authPassword}" class="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs" />
+                         <p class="text-stone-600">Entre com a mesma conta no PC e no celular para sincronizar sua aldeia automaticamente.</p>
+                         <input id="authEmailInput" type="email" autocomplete="email" placeholder="Seu e-mail" value="${ui.authEmail}" class="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs" />
+                         <input id="authPassInput" type="password" autocomplete="current-password" placeholder="Sua senha (mín. 6 caracteres)" value="${ui.authPassword}" class="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs" />
                          <div class="grid grid-cols-2 gap-2 pt-1">
                            <button id="btnEmailLogin" ${ui.authLoading ? 'disabled' : ''} class="py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer">${ui.authLoading ? 'Aguarde...' : 'Entrar'}</button>
                            <button id="btnEmailSignUp" ${ui.authLoading ? 'disabled' : ''} class="py-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-white font-bold cursor-pointer">Criar Conta</button>
                          </div>`
+                  }
+                  ${
+                    cloud.lastError
+                      ? `<div class="p-2 rounded-lg bg-red-100 border border-red-300 text-red-900 text-[11px] font-mono break-all">Detalhe: ${cloud.lastError}</div>`
+                      : ''
                   }
                 </div>
 
@@ -1947,6 +2068,9 @@
         const btnForceSync = document.getElementById('btnForceSync');
         if (btnForceSync) btnForceSync.onclick = () => pushCloudSave(true);
 
+        const btnPullSync = document.getElementById('btnPullSync');
+        if (btnPullSync) btnPullSync.onclick = () => pullCloudSave(true);
+
         const btnCopy = document.getElementById('btnCopySave');
         if (btnCopy) {
           btnCopy.onclick = () => {
@@ -1980,14 +2104,13 @@
             const sVal = document.getElementById('seedInput').value.trim().toUpperCase() || DEFAULT_SEED;
             state = createInitialState(sVal, 'Roma (Capital)');
             const spawnV = state.villages[0];
-            ui = { tab: 'fields', selectedFieldId: 1, selectedSlotId: 1, mapCenter: { x: spawnV.x, y: spawnV.y }, inspectedTile: null, toast: null, showSave: false, saveText: '', catalogScrollTop: 0 };
+            ui = { tab: 'fields', selectedFieldId: 1, selectedSlotId: 1, mapCenter: { x: spawnV.x, y: spawnV.y }, inspectedTile: null, toast: null, showSave: false, saveText: '', catalogScrollTop: 0, authEmail: ui.authEmail, authPassword: ui.authPassword, authLoading: false };
             saveNow();
             setToast(`Novo mundo (${sVal}) criado em (${spawnV.x}|${spawnV.y})!`);
           };
         }
       }
 
-      // Loop principal de 1 segundo (salva localmente a cada segundo)
       setInterval(() => {
         const res = stepSimulation(state, Date.now());
         state = res.state;
@@ -2001,14 +2124,12 @@
         }
       }, 1000);
 
-      // Backup automático periódico na nuvem a cada 60 segundos (para não estourar cota gratuita)
       setInterval(() => {
         if (cloud.user) {
           pushCloudSave(false);
         }
       }, 60000);
 
-      // Garante envio para a nuvem ao fechar/minimizar a aba
       window.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden' && cloud.user) {
           pushCloudSave(false);
@@ -2020,3 +2141,4 @@
   </script>
 </body>
 </html>
+```
