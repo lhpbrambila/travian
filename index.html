@@ -32,7 +32,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
 
     // ========================================================================
-    // TRAVIAN IDLE V1.4.0 — MERCADO, ALIANÇAS, NOVAS TROPAS + CLOUD SAVE
+    // TRAVIAN IDLE V1.4.0 — 24 SLOTS, MERCADO, ALIANÇAS, NOVAS TROPAS + CLOUD
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
@@ -431,7 +431,7 @@
       }
 
       // ======================================================================
-      // HELPERS DE INICIALIZAÇÃO E MIGRAÇÃO SEGURA DO SAVE
+      // HELPERS DE INICIALIZAÇÃO E MIGRAÇÃO SEGURA DO SAVE (24 SLOTS)
       // ======================================================================
       function makeFields(dist) {
         if (!dist) {
@@ -451,11 +451,31 @@
       }
 
       function makeSlots() {
-        return Array.from({ length: 12 }, (_, idx) => ({
+        return Array.from({ length: 24 }, (_, idx) => ({
           id: idx + 1,
           buildingType: idx === 0 ? 'main_building' : null,
           level: idx === 0 ? 1 : 0,
         }));
+      }
+
+      function normalizeSlots(rawSlots) {
+        const list = Array.isArray(rawSlots) ? rawSlots : [];
+        return Array.from({ length: 24 }, (_, idx) => {
+          const id = idx + 1;
+          const found = list.find((s) => s && s.id === id) || list[idx];
+          if (found) {
+            return {
+              id,
+              buildingType: found.buildingType || null,
+              level: Number(found.level) || 0,
+            };
+          }
+          return {
+            id,
+            buildingType: idx === 0 ? 'main_building' : null,
+            level: idx === 0 ? 1 : 0,
+          };
+        });
       }
 
       function makeTroops(partial) {
@@ -471,24 +491,14 @@
         };
       }
 
-      function normalizeAlliance(rawAlliance) {
-        if (!rawAlliance || typeof rawAlliance !== 'object' || !rawAlliance.name) return null;
-        return {
-          name: String(rawAlliance.name),
-          tag: String(rawAlliance.tag || 'IMP').toUpperCase(),
-          level: Math.max(1, Math.min(10, Number(rawAlliance.level) || 1)),
-          xp: Math.max(0, Number(rawAlliance.xp) || 0),
-          members: Array.isArray(rawAlliance.members) ? rawAlliance.members : [],
-          donatedTotal: Math.max(0, Number(rawAlliance.donatedTotal) || 0),
-        };
-      }
-
       function getAllianceBonuses(alliance) {
-        if (!alliance) return { prodPct: 0, atkPct: 0, merchantPct: 0 };
-        const lvl = Math.max(1, alliance.level || 1);
+        if (!alliance) {
+          return { prodPct: 0, atkPct: 0, merchantPct: 0 };
+        }
+        const lvl = Math.max(1, Number(alliance.level) || 1);
         return {
-          prodPct: lvl * 3,
-          atkPct: lvl * 4,
+          prodPct: lvl * 4,
+          atkPct: lvl * 5,
           merchantPct: lvl * 10,
         };
       }
@@ -665,27 +675,33 @@
           gBonus = 0,
           cranny = 0,
           mbLvl = 1,
-          mktLvl = 0,
-          embLvl = 0;
+          marketLvl = 0,
+          embassyLvl = 0,
+          barracksLvl = 0,
+          resLvl = 0;
         for (const s of village.slots) {
           if (!s.buildingType || s.level <= 0) continue;
           if (s.buildingType === 'warehouse') wBonus += STORAGE_BONUS_TABLE[s.level] || 0;
           if (s.buildingType === 'granary') gBonus += STORAGE_BONUS_TABLE[s.level] || 0;
           if (s.buildingType === 'cranny') cranny += Math.round(150 * Math.pow(1.334, s.level - 1));
           if (s.buildingType === 'main_building') mbLvl = Math.max(mbLvl, s.level);
-          if (s.buildingType === 'marketplace') mktLvl = Math.max(mktLvl, s.level);
-          if (s.buildingType === 'embassy') embLvl = Math.max(embLvl, s.level);
+          if (s.buildingType === 'marketplace') marketLvl = Math.max(marketLvl, s.level);
+          if (s.buildingType === 'embassy') embassyLvl = Math.max(embassyLvl, s.level);
+          if (s.buildingType === 'barracks') barracksLvl = Math.max(barracksLvl, s.level);
+          if (s.buildingType === 'residence') resLvl = Math.max(resLvl, s.level);
         }
         const speedMult = Math.max(0.5, 1 - Math.min(40, (mbLvl - 1) * 4) / 100);
-        const merchantCap = mktLvl > 0 ? mktLvl * 750 : 0;
+        const merchantCap = marketLvl > 0 ? marketLvl * 750 : 0;
         return {
           warehouse: BASE_STORAGE + wBonus,
           granary: BASE_STORAGE + gBonus,
           cranny,
           mbLvl,
-          mktLvl,
-          embLvl,
+          marketLvl,
           merchantCap,
+          embassyLvl,
+          barracksLvl,
+          resLvl,
           speedMult,
         };
       }
@@ -695,13 +711,8 @@
         for (const f of village.fields) {
           base[f.type] += FIELD_PROD_TABLE[f.level] || 5;
         }
-        const allianceProdBonus = getAllianceBonuses(alliance).prodPct;
-        const bonus = {
-          wood: allianceProdBonus,
-          clay: allianceProdBonus,
-          iron: allianceProdBonus,
-          crop: allianceProdBonus,
-        };
+        const alBonus = getAllianceBonuses(alliance).prodPct;
+        const bonus = { wood: alBonus, clay: alBonus, iron: alBonus, crop: alBonus };
         for (const key of village.oases || []) {
           const [ox, oy] = key.split(',').map(Number);
           const tile = generateTile(worldSeed, ox, oy);
@@ -820,38 +831,27 @@
       // ======================================================================
       function stepSimulation(prev, targetNow) {
         const elapsedMs = Math.max(0, targetNow - prev.lastUpdated) * prev.timeScale;
-        if (elapsedMs <= 0) {
-          return {
-            state: {
-              ...prev,
-              alliance: normalizeAlliance(prev.alliance),
-              tradeCaravans: Array.isArray(prev.tradeCaravans) ? prev.tradeCaravans : [],
-              lastUpdated: targetNow,
-            },
-            event: null,
-          };
-        }
+        if (elapsedMs <= 0) return { state: { ...prev, lastUpdated: targetNow }, event: null };
         const endCursor = prev.lastUpdated + elapsedMs;
-        const alliance = normalizeAlliance(prev.alliance);
-        const allianceBonuses = getAllianceBonuses(alliance);
 
         const villages = prev.villages.map((v) => ({
           ...v,
           oases: [...(v.oases || [])],
           resources: { ...v.resources },
           fields: v.fields.map((f) => ({ ...f })),
-          slots: v.slots.map((s) => ({ ...s })),
+          slots: normalizeSlots(v.slots),
           queue: v.queue.map((q) => ({ ...q })),
           troops: makeTroops(v.troops),
           training: v.training.map((t) => ({ ...t })),
         }));
 
         const nextBarbarianStates = { ...(prev.barbarianStates || {}) };
-        let marches = prev.marches.map((m) => ({ ...m, troops: makeTroops(m.troops), loot: { ...m.loot } }));
+        let marches = (prev.marches || []).map((m) => ({ ...m, troops: makeTroops(m.troops), loot: { ...m.loot } }));
         let caravans = (prev.tradeCaravans || []).map((c) => ({ ...c, cargo: { ...c.cargo } }));
-        let incoming = prev.incomingAttacks.map((a) => ({ ...a }));
+        let incoming = (prev.incomingAttacks || []).map((a) => ({ ...a }));
         let nextRaid = prev.nextRaidCheckAt || prev.lastUpdated + 120000;
-        const reports = [...prev.reports];
+        const reports = [...(prev.reports || [])];
+        const alliance = prev.alliance ? { ...prev.alliance, members: [...(prev.alliance.members || [])] } : null;
         let event = null;
 
         // 1. Treinamento de tropas
@@ -861,7 +861,7 @@
             const done = Math.min(item.count, Math.floor(Math.max(0, endCursor - item.startedAt) / Math.max(250, item.perUnitMs)));
             const newly = Math.max(0, done - item.completedCount);
             if (newly > 0) {
-              v.troops[item.unitType] += newly;
+              v.troops[item.unitType] = (v.troops[item.unitType] || 0) + newly;
               cloud.dirty = true;
             }
             if (done < item.count) nextTrn.push({ ...item, completedCount: done });
@@ -874,25 +874,22 @@
         for (const c of caravans) {
           if (endCursor >= c.arrivesAt) {
             cloud.dirty = true;
-            const dest = villages.find((v) => v.id === c.toVillageId);
-            if (dest) {
-              const dCap = getCapacities(dest);
-              dest.resources.wood = Math.min(dCap.warehouse, dest.resources.wood + (c.cargo.wood || 0));
-              dest.resources.clay = Math.min(dCap.warehouse, dest.resources.clay + (c.cargo.clay || 0));
-              dest.resources.iron = Math.min(dCap.warehouse, dest.resources.iron + (c.cargo.iron || 0));
-              dest.resources.crop = Math.min(dCap.granary, dest.resources.crop + (c.cargo.crop || 0));
-              reports.unshift({
-                id: `r_mkt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                ts: c.arrivesAt,
-                title: `Caravana Comercial → ${dest.name}`,
-                kind: 'trade',
-                outcome: 'victory',
-                info: `Entrega concluída: +${c.cargo.wood} Mad, +${c.cargo.clay} Bar, +${c.cargo.iron} Fer, +${c.cargo.crop} Cer.`,
-              });
-              event = {
-                sound: 'build',
-                toast: `Mercadores entregaram recursos em ${dest.name}!`,
-              };
+            const dest = villages.find((v) => v.id === c.toVillageId) || villages[0];
+            const cap = getCapacities(dest);
+            dest.resources.wood = Math.min(cap.warehouse, dest.resources.wood + (c.cargo.wood || 0));
+            dest.resources.clay = Math.min(cap.warehouse, dest.resources.clay + (c.cargo.clay || 0));
+            dest.resources.iron = Math.min(cap.warehouse, dest.resources.iron + (c.cargo.iron || 0));
+            dest.resources.crop = Math.min(cap.granary, dest.resources.crop + (c.cargo.crop || 0));
+            reports.unshift({
+              id: `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              ts: c.arrivesAt,
+              title: `Caravana Comercial: ${c.fromName} → ${dest.name}`,
+              kind: 'trade',
+              outcome: 'victory',
+              info: `Entrega concluída: +${fmtNum(c.cargo.wood)} Mad, +${fmtNum(c.cargo.clay)} Bar, +${fmtNum(c.cargo.iron)} Fer, +${fmtNum(c.cargo.crop)} Cer.`,
+            });
+            if (!event) {
+              event = { sound: 'build', toast: `Mercadores chegaram em ${dest.name}!` };
             }
           } else {
             keptCaravans.push(c);
@@ -902,6 +899,7 @@
 
         // 3. Marchas militares e colonização
         const keptMarches = [];
+        const atkBonusMult = 1 + getAllianceBonuses(alliance).atkPct / 100;
         for (let m of marches) {
           const origin = villages.find((v) => v.id === m.originVillageId) || villages[0];
           if (m.status === 'outgoing' && endCursor >= m.arrivesAt) {
@@ -923,9 +921,10 @@
               continue;
             }
 
-            let rawAtk = 0;
-            for (const u of UNIT_ORDER) rawAtk += m.troops[u] * UNIT_CONFIG[u].atk;
-            const atkPow = Math.round(rawAtk * (1 + allianceBonuses.atkPct / 100));
+            let baseAtkPow = 0;
+            for (const u of UNIT_ORDER) baseAtkPow += (m.troops[u] || 0) * UNIT_CONFIG[u].atk;
+            const atkPow = Math.round(baseAtkPow * atkBonusMult);
+
             const regen = getRegen(nextBarbarianStates, m.targetX, m.targetY, m.arrivesAt);
             const defPow =
               tile.type === 'barbarian' && tile.barbarian
@@ -940,8 +939,8 @@
             const surv = makeTroops();
             let carry = 0;
             for (const u of UNIT_ORDER) {
-              const lost = Math.min(m.troops[u], Math.round(m.troops[u] * lossRate));
-              surv[u] = Math.max(0, m.troops[u] - lost);
+              const lost = Math.min(m.troops[u] || 0, Math.round((m.troops[u] || 0) * lossRate));
+              surv[u] = Math.max(0, (m.troops[u] || 0) - lost);
               carry += surv[u] * UNIT_CONFIG[u].carry;
             }
 
@@ -998,7 +997,7 @@
           if (m.status === 'returning' && endCursor >= m.arrivesAt) {
             cloud.dirty = true;
             const cap = getCapacities(origin);
-            for (const u of UNIT_ORDER) origin.troops[u] += m.troops[u];
+            for (const u of UNIT_ORDER) origin.troops[u] = (origin.troops[u] || 0) + (m.troops[u] || 0);
             origin.resources.wood = Math.min(cap.warehouse, origin.resources.wood + m.loot.wood);
             origin.resources.clay = Math.min(cap.warehouse, origin.resources.clay + m.loot.clay);
             origin.resources.iron = Math.min(cap.warehouse, origin.resources.iron + m.loot.iron);
@@ -1009,7 +1008,7 @@
         }
         marches = keptMarches;
 
-        // 4. Invasões bárbaras
+        // 4. Ataques recebidos
         const keptInc = [];
         for (const a of incoming) {
           if (endCursor >= a.impactsAt) {
@@ -1017,7 +1016,7 @@
             const tv = villages.find((v) => v.id === a.targetVillageId) || villages[0];
             const cap = getCapacities(tv);
             let defPow = 40;
-            for (const u of UNIT_ORDER) defPow += tv.troops[u] * UNIT_CONFIG[u].def;
+            for (const u of UNIT_ORDER) defPow += (tv.troops[u] || 0) * UNIT_CONFIG[u].def;
             const won = defPow >= a.atkPower;
             if (!won) {
               const factor = 0.25;
@@ -1062,7 +1061,7 @@
           }
         }
 
-        // 5. Produção de recursos e fila de construções
+        // 5. Produção por hora e conclusão de obras
         for (const v of villages) {
           let cursor = prev.lastUpdated;
           const addProd = (ms) => {
@@ -1115,7 +1114,7 @@
             marches,
             tradeCaravans: caravans,
             alliance,
-            reports: reports.slice(0, 35),
+            reports: reports.slice(0, 30),
             lastUpdated: targetNow,
           },
           event,
@@ -1123,7 +1122,7 @@
       }
 
       // ======================================================================
-      // INICIALIZAÇÃO DO SAVE LOCAL + SINCRONIZAÇÃO SUPABASE REST (INTACTA)
+      // INICIALIZAÇÃO DO SAVE LOCAL + SINCRONIZAÇÃO SUPABASE REST
       // ======================================================================
       let state = createInitialState();
       try {
@@ -1132,6 +1131,8 @@
           const parsed = JSON.parse(raw);
           if (parsed && Array.isArray(parsed.villages) && parsed.villages.length > 0) {
             if (typeof parsed.peaceEndsAt !== 'number') parsed.peaceEndsAt = 0;
+            if (!Array.isArray(parsed.tradeCaravans)) parsed.tradeCaravans = [];
+            if (parsed.alliance === undefined) parsed.alliance = null;
             state = stepSimulation(parsed, Date.now()).state;
           }
         }
@@ -1250,6 +1251,8 @@
 
             if (forceToast || cloudLvls > 0 || localLvls === 0 || (cloudState.lastUpdated || 0) >= (state.lastUpdated || 0)) {
               if (typeof cloudState.peaceEndsAt !== 'number') cloudState.peaceEndsAt = 0;
+              if (!Array.isArray(cloudState.tradeCaravans)) cloudState.tradeCaravans = [];
+              if (cloudState.alliance === undefined) cloudState.alliance = null;
               state = stepSimulation(cloudState, Date.now()).state;
               const av = getActiveVillage();
               ui.mapCenter = { x: av.x, y: av.y };
@@ -1390,6 +1393,7 @@
         const v = getActiveVillage();
         const cap = getCapacities(v);
         const prod = getHourlyProd(v, state.worldSeed, state.alliance);
+        const alBonus = getAllianceBonuses(state.alliance);
         const root = document.getElementById('app');
 
         const incAtk = state.incomingAttacks[0] || null;
@@ -1418,7 +1422,7 @@
                   <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.0</span>
                   ${
                     state.alliance
-                      ? `<span class="px-2 py-0.5 rounded bg-sky-900/70 border border-sky-500/60 text-sky-200 text-[11px] font-extrabold">[${state.alliance.tag}] Nv.${state.alliance.level}</span>`
+                      ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200 text-[11px] font-extrabold">[${state.alliance.tag}] Nv.${state.alliance.level}</span>`
                       : ''
                   }
                   ${
@@ -1430,9 +1434,10 @@
                         </select>`
                       : `<h1 class="font-bold text-sm sm:text-base text-amber-100 truncate">${v.name} (${v.x}|${v.y})</h1>`
                   }
+                  <span class="hidden md:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300">Seed: ${state.worldSeed}</span>
                   ${
                     isPeace
-                      ? `<span class="hidden sm:inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200">🕊️ Paz: ${peaceDays}d ${peaceHours}h</span>`
+                      ? `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200">🕊️ Paz: ${peaceDays}d ${peaceHours}h</span>`
                       : ''
                   }
                 </div>
@@ -1500,19 +1505,19 @@
           }
 
           <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 pb-24">
-            ${renderTabContent(v, cap, prod, now)}
+            ${renderTabContent(v, cap, prod, alBonus, now)}
           </main>
 
           <nav class="fixed bottom-0 inset-x-0 z-30 bg-stone-900 text-stone-300 border-t border-stone-700 shadow-2xl">
-            <div class="max-w-3xl mx-auto grid grid-cols-7 h-16">
+            <div class="max-w-4xl mx-auto grid grid-cols-7 h-16">
               ${[
                 { id: 'fields', label: 'Campos', icon: '🌾' },
                 { id: 'center', label: 'Aldeia', icon: '🏛️', badge: v.queue.length > 0 ? `${v.queue.length}/2` : '' },
                 { id: 'barracks', label: 'Quartel', icon: '⚔️', badge: state.marches.length > 0 ? `${state.marches.length}` : '' },
                 { id: 'market', label: 'Mercado', icon: '⚖️', badge: (state.tradeCaravans || []).length > 0 ? `${state.tradeCaravans.length}` : '' },
-                { id: 'alliance', label: 'Aliança', icon: '🛡️', badge: state.alliance ? `Nv${state.alliance.level}` : '' },
+                { id: 'alliance', label: 'Aliança', icon: '🛡️', badge: state.alliance ? `Nv.${state.alliance.level}` : '' },
                 { id: 'map', label: 'Mapa', icon: '🗺️', badge: v.oases.length > 0 ? `${v.oases.length}` : '' },
-                { id: 'reports', label: 'Relatos', icon: '📜', badge: state.reports.length > 0 ? `${state.reports.length}` : '' },
+                { id: 'reports', label: 'Relatórios', icon: '📜', badge: state.reports.length > 0 ? `${state.reports.length}` : '' },
               ]
                 .map(
                   (t) => `
@@ -1544,35 +1549,37 @@
         bindEvents(v, cap, now);
       }
 
-      function renderTabContent(v, cap, prod, now) {
+      function renderTabContent(v, cap, prod, alBonus, now) {
         // ====================================================================
-        // ABA MERCADO ENTRE ALDEIAS & TROCA DE RECURSOS
+        // ABA MERCADO ENTRE ALDEIAS
         // ====================================================================
         if (ui.tab === 'market') {
           const otherVillages = state.villages.filter((vl) => vl.id !== v.id);
-          if (!ui.tradeTargetId && otherVillages.length > 0) {
-            ui.tradeTargetId = otherVillages[0].id;
+          const selectedDest = otherVillages.find((vl) => vl.id === ui.tradeTargetId) || otherVillages[0] || null;
+          if (selectedDest && ui.tradeTargetId !== selectedDest.id) {
+            ui.tradeTargetId = selectedDest.id;
           }
-          const targetV = otherVillages.find((vl) => vl.id === ui.tradeTargetId) || otherVillages[0] || null;
-          const totalLoad =
+
+          const totalCargo =
             (Number(ui.tradeWood) || 0) +
             (Number(ui.tradeClay) || 0) +
             (Number(ui.tradeIron) || 0) +
             (Number(ui.tradeCrop) || 0);
 
-          const canSendCaravan =
-            cap.mktLvl > 0 &&
-            targetV !== null &&
-            totalLoad > 0 &&
-            totalLoad <= cap.merchantCap &&
+          const hasMarket = cap.marketLvl > 0;
+          const canSendCargo =
+            hasMarket &&
+            selectedDest &&
+            totalCargo > 0 &&
+            totalCargo <= cap.merchantCap &&
             v.resources.wood >= (Number(ui.tradeWood) || 0) &&
             v.resources.clay >= (Number(ui.tradeClay) || 0) &&
             v.resources.iron >= (Number(ui.tradeIron) || 0) &&
             v.resources.crop >= (Number(ui.tradeCrop) || 0);
 
-          const swapAmt = Math.max(50, Number(ui.swapAmount) || 200);
+          const swapAmt = Math.max(50, Math.floor(Number(ui.swapAmount) || 200));
           const canSwap =
-            cap.mktLvl > 0 &&
+            hasMarket &&
             ui.swapFrom !== ui.swapTo &&
             v.resources[ui.swapFrom] >= swapAmt &&
             swapAmt <= cap.merchantCap;
@@ -1582,119 +1589,105 @@
               <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h2 class="font-bold text-base text-stone-800">Mercado &amp; Rotas Comerciais</h2>
-                    <p class="text-xs text-stone-500">Mercado Nv.${cap.mktLvl} • Capacidade da caravana: <strong class="text-cyan-800">${fmtNum(cap.merchantCap)}</strong> recursos</p>
+                    <h2 class="font-bold text-base text-stone-800">Mercado &amp; Caravanas entre Aldeias</h2>
+                    <p class="text-xs text-stone-500">Mercado Nv.${cap.marketLvl} • Capacidade da Caravana: <strong>${fmtNum(cap.merchantCap)}</strong> recursos (Bônus Aliança Vel.: +${alBonus.merchantPct}%)</p>
                   </div>
                 </div>
 
                 ${
-                  cap.mktLvl === 0
-                    ? `<div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-1.5">
-                         <div class="font-bold">⚖️ Mercado ainda não construído nesta aldeia</div>
-                         <p>Vá até <strong>Aldeia</strong>, selecione um terreno vazio e construa o <strong>Mercado</strong> (requer Edifício Principal Nv.3, Armazém Nv.1 e Celeiro Nv.1).</p>
-                       </div>`
+                  !hasMarket
+                    ? `<div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
+                        <div class="font-bold">⚖️ Construa o Mercado no Centro da Aldeia</div>
+                        <p>Vá na aba <strong>Aldeia</strong>, selecione um terreno vazio e construa o <strong>Mercado</strong> (requer Edifício Principal Nv.3, Armazém Nv.1 e Celeiro Nv.1).</p>
+                      </div>`
                     : otherVillages.length === 0
-                    ? `<div class="p-4 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-950 space-y-1">
-                         <div class="font-bold">🏰 Você possui apenas 1 aldeia no momento</div>
-                         <p>Funde uma <strong>Colônia</strong> usando 3 Colonizadores no Mapa para enviar caravanas entre suas aldeias. Enquanto isso, você já pode usar a <strong>Troca de Mercadores 1:1</strong> abaixo!</p>
-                       </div>`
+                    ? `<div class="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs space-y-1">
+                        <div class="font-bold">🚩 Você ainda possui apenas 1 aldeia</div>
+                        <p>Treine 3 Colonizadores na Residência (Nv.5) e funde uma Colônia no Mapa para enviar caravanas de recursos entre suas aldeias! Enquanto isso, você pode usar a <strong>Troca de Mercadores 1:1</strong> ao lado.</p>
+                      </div>`
                     : `<div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
-                         <div class="font-bold text-sm text-stone-900">Enviar Caravana entre Aldeias</div>
-                         <div>
-                           <label class="block font-semibold text-stone-600 mb-1">Aldeia de Destino</label>
-                           <select id="tradeTargetSelect" class="w-full px-3 py-2 rounded-lg border border-stone-300 font-bold bg-stone-50">
-                             ${otherVillages
-                               .map((ov) => {
-                                 const d = Math.hypot(ov.x - v.x, ov.y - v.y).toFixed(1);
-                                 return `<option value="${ov.id}" ${ov.id === targetV.id ? 'selected' : ''}>${ov.name} (${ov.x}|${ov.y}) — Distância: ${d} campos</option>`;
-                               })
-                               .join('')}
-                           </select>
-                         </div>
+                        <div>
+                          <label class="font-bold text-stone-700 block mb-1">Aldeia de Destino</label>
+                          <select id="tradeTargetSelect" class="w-full px-3 py-2 rounded-lg border border-stone-300 bg-stone-50 font-bold">
+                            ${otherVillages
+                              .map((ov) => {
+                                const d = Math.hypot(ov.x - v.x, ov.y - v.y).toFixed(1);
+                                return `<option value="${ov.id}" ${selectedDest && ov.id === selectedDest.id ? 'selected' : ''}>${ov.name} (${ov.x}|${ov.y}) — ${d} campos</option>`;
+                              })
+                              .join('')}
+                          </select>
+                        </div>
 
-                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           ${[
-                             { key: 'wood', stateKey: 'tradeWood', label: 'Madeira' },
-                             { key: 'clay', stateKey: 'tradeClay', label: 'Barro' },
-                             { key: 'iron', stateKey: 'tradeIron', label: 'Ferro' },
-                             { key: 'crop', stateKey: 'tradeCrop', label: 'Cereal' },
-                           ]
-                             .map(
-                               (item) => `
-                                 <div class="p-2 rounded-lg bg-stone-50 border border-stone-200">
-                                   <div class="flex justify-between text-[11px] font-bold mb-1">
-                                     <span>${item.label}</span>
-                                     <button data-fillres="${item.stateKey}" class="btn-fill-res text-cyan-700 hover:underline cursor-pointer">Max</button>
-                                   </div>
-                                   <input type="number" min="0" max="${cap.merchantCap}" data-tradeinput="${item.stateKey}" value="${ui[item.stateKey]}" class="trade-input w-full px-2 py-1 rounded border border-stone-300 font-mono text-xs bg-white" />
-                                 </div>
-                               `
-                             )
-                             .join('')}
-                         </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          ${[
+                            { key: 'wood', stateKey: 'tradeWood', label: '🌲 Madeira' },
+                            { key: 'clay', stateKey: 'tradeClay', label: '🧱 Barro' },
+                            { key: 'iron', stateKey: 'tradeIron', label: '⛏️ Ferro' },
+                            { key: 'crop', stateKey: 'tradeCrop', label: '🌾 Cereal' },
+                          ]
+                            .map(
+                              (item) => `
+                              <div class="p-2 rounded-lg bg-stone-50 border border-stone-200 space-y-1">
+                                <div class="flex items-center justify-between">
+                                  <span class="font-bold text-[11px]">${item.label}</span>
+                                  <button data-fillres="${item.stateKey}" class="btn-fill-res text-[10px] font-bold text-amber-700 hover:underline cursor-pointer">Máx</button>
+                                </div>
+                                <input data-tradeinput="${item.stateKey}" type="number" min="0" max="${cap.merchantCap}" value="${ui[item.stateKey]}" class="trade-input w-full px-2 py-1 rounded border border-stone-300 font-mono text-xs bg-white" />
+                              </div>`
+                            )
+                            .join('')}
+                        </div>
 
-                         <div class="flex items-center justify-between text-xs bg-stone-100 px-3 py-2 rounded-lg">
-                           <span>Carga selecionada: <strong class="${totalLoad > cap.merchantCap ? 'text-red-700' : 'text-stone-900'}">${fmtNum(totalLoad)} / ${fmtNum(cap.merchantCap)}</strong></span>
-                           <button id="btnClearTrade" class="text-stone-500 hover:text-stone-800 font-semibold cursor-pointer">Limpar</button>
-                         </div>
-
-                         <button id="btnSendCaravan" ${canSendCaravan ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer ${canSendCaravan ? 'bg-cyan-700 hover:bg-cyan-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                           🚚 Enviar Caravana para ${targetV ? targetV.name : 'Destino'}
-                         </button>
-                       </div>`
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <span class="font-bold ${totalCargo > cap.merchantCap ? 'text-red-600' : 'text-stone-700'}">
+                            Carga selecionada: ${fmtNum(totalCargo)} / ${fmtNum(cap.merchantCap)}
+                          </span>
+                          <div class="flex gap-2">
+                            <button id="btnClearTrade" class="px-3 py-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold cursor-pointer">Limpar</button>
+                            <button id="btnSendCaravan" ${canSendCargo ? '' : 'disabled'} class="px-4 py-2 rounded-lg font-bold cursor-pointer ${canSendCargo ? 'bg-cyan-700 hover:bg-cyan-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                              🚚 Enviar Caravana
+                            </button>
+                          </div>
+                        </div>
+                      </div>`
                 }
 
-                ${
-                  cap.mktLvl > 0
-                    ? `<div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
-                         <div class="flex items-center justify-between">
-                           <div class="font-bold text-sm text-stone-900">Troca Instantânea de Excedentes (1:1)</div>
-                           <span class="text-[11px] text-stone-500">Limite: ${fmtNum(cap.merchantCap)}</span>
-                         </div>
-                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                           <div>
-                             <label class="block text-[11px] font-semibold text-stone-500 mb-1">Entregar</label>
-                             <select id="swapFromSel" class="w-full px-2.5 py-2 rounded-lg border border-stone-300 bg-stone-50 font-bold">
-                               ${['wood', 'clay', 'iron', 'crop']
-                                 .map((rk) => `<option value="${rk}" ${ui.swapFrom === rk ? 'selected' : ''}>${FIELD_CONFIG[rk].label} (${fmtNum(v.resources[rk])})</option>`)
-                                 .join('')}
-                             </select>
-                           </div>
-                           <div>
-                             <label class="block text-[11px] font-semibold text-stone-500 mb-1">Receber</label>
-                             <select id="swapToSel" class="w-full px-2.5 py-2 rounded-lg border border-stone-300 bg-stone-50 font-bold">
-                               ${['wood', 'clay', 'iron', 'crop']
-                                 .map((rk) => `<option value="${rk}" ${ui.swapTo === rk ? 'selected' : ''}>${FIELD_CONFIG[rk].label}</option>`)
-                                 .join('')}
-                             </select>
-                           </div>
-                           <div>
-                             <label class="block text-[11px] font-semibold text-stone-500 mb-1">Quantidade</label>
-                             <input id="swapAmountInput" type="number" min="50" step="50" max="${cap.merchantCap}" value="${ui.swapAmount}" class="w-full px-2.5 py-2 rounded-lg border border-stone-300 font-mono font-bold" />
-                           </div>
-                         </div>
-                         <button id="btnExecuteSwap" ${canSwap ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer ${canSwap ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                           🔄 Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${FIELD_CONFIG[ui.swapTo].label}
-                         </button>
-                       </div>`
-                    : ''
-                }
+                <div class="p-4 rounded-xl bg-white border border-stone-200 space-y-2.5 text-xs">
+                  <h3 class="font-bold text-sm text-stone-800">Mercador Viajante (Troca 1:1 na Aldeia)</h3>
+                  <p class="text-stone-500">Equilibre seus estoques trocando recursos excedentes instantaneamente (limite por viagem: ${fmtNum(cap.merchantCap)}).</p>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <select id="swapFromSel" class="px-2.5 py-2 rounded-lg border border-stone-300 font-bold">
+                      ${['wood', 'clay', 'iron', 'crop']
+                        .map((rk) => `<option value="${rk}" ${ui.swapFrom === rk ? 'selected' : ''}>Entregar: ${FIELD_CONFIG[rk].label}</option>`)
+                        .join('')}
+                    </select>
+                    <select id="swapToSel" class="px-2.5 py-2 rounded-lg border border-stone-300 font-bold">
+                      ${['wood', 'clay', 'iron', 'crop']
+                        .map((rk) => `<option value="${rk}" ${ui.swapTo === rk ? 'selected' : ''}>Receber: ${FIELD_CONFIG[rk].label}</option>`)
+                        .join('')}
+                    </select>
+                    <input id="swapAmountInput" type="number" min="50" step="50" max="${Math.max(50, cap.merchantCap)}" value="${swapAmt}" class="px-2.5 py-2 rounded-lg border border-stone-300 font-mono font-bold" />
+                  </div>
+                  <button id="btnExecuteSwap" ${canSwap ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canSwap ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                    🔄 Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapTo].label}
+                  </button>
+                </div>
               </div>
 
               <div class="lg:col-span-5 bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-2.5">
                 <h3 class="font-bold text-sm text-stone-800">Caravanas em Trânsito (${(state.tradeCaravans || []).length})</h3>
                 ${
                   (state.tradeCaravans || []).length === 0
-                    ? `<p class="text-xs text-stone-500">Nenhuma caravana viajando no momento.</p>`
-                    : (state.tradeCaravans || [])
+                    ? `<p class="text-xs text-stone-500">Nenhuma caravana na estrada no momento.</p>`
+                    : state.tradeCaravans
                         .map((c) => {
                           const rem = Math.max(0, Math.ceil((c.arrivesAt - now) / 1000));
                           return `<div class="p-3 rounded-xl bg-cyan-50/70 border border-cyan-200 text-xs space-y-1">
                             <div class="flex justify-between font-bold text-cyan-950">
-                              <span>${c.fromName} → ${c.toName}</span>
+                              <span>🚚 ${c.fromName} → ${c.toName}</span>
                               <span class="font-mono">${fmtTime(rem)}</span>
                             </div>
-                            <div class="text-[11px] text-cyan-900">Carga: ${c.cargo.wood} Mad • ${c.cargo.clay} Bar • ${c.cargo.iron} Fer • ${c.cargo.crop} Cer</div>
+                            <div class="text-stone-600">Carga: ${fmtNum(c.cargo.wood)} Mad • ${fmtNum(c.cargo.clay)} Bar • ${fmtNum(c.cargo.iron)} Fer • ${fmtNum(c.cargo.crop)} Cer</div>
                           </div>`;
                         })
                         .join('')
@@ -1705,148 +1698,127 @@
         }
 
         // ====================================================================
-        // ABA SISTEMA DE ALIANÇAS
+        // ABA ALIANÇAS
         // ====================================================================
         if (ui.tab === 'alliance') {
+          const hasEmbassy = cap.embassyLvl > 0;
           const al = state.alliance;
-          const bonuses = getAllianceBonuses(al);
-          const totalPlayerPower = state.villages.reduce(
-            (sum, vl) =>
-              sum +
-              vl.fields.reduce((s, f) => s + f.level * 12, 0) +
-              UNIT_ORDER.reduce((s, u) => s + (vl.troops[u] || 0) * (UNIT_CONFIG[u].atk + UNIT_CONFIG[u].def), 0),
-            0
-          );
-
-          if (!al) {
-            return `
-              <div class="max-w-xl mx-auto bg-white rounded-2xl border border-stone-300 p-5 shadow-sm space-y-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-2xl bg-sky-900 text-sky-200 flex items-center justify-center text-2xl">🛡️</div>
-                  <div>
-                    <h2 class="font-bold text-base text-stone-900">Fundar Aliança Imperial</h2>
-                    <p class="text-xs text-stone-500">Embaixada atual: <strong>Nv.${cap.embLvl}</strong> (Requer Embaixada Nv.1)</p>
-                  </div>
-                </div>
-
-                ${
-                  cap.embLvl === 0
-                    ? `<div class="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950">
-                         Construa uma <strong>Embaixada</strong> no Centro da Aldeia para fundar sua aliança e recrutar comandantes aliados!
-                       </div>`
-                    : `<div class="space-y-3 text-xs">
-                         <div>
-                           <label class="block font-bold text-stone-700 mb-1">Nome da Aliança</label>
-                           <input id="allianceNameIn" type="text" maxlength="28" placeholder="Ex.: Legião Romana" value="${ui.allianceNameDraft}" class="w-full px-3 py-2 rounded-lg border border-stone-300" />
-                         </div>
-                         <div>
-                           <label class="block font-bold text-stone-700 mb-1">Tag (2 a 4 letras)</label>
-                           <input id="allianceTagIn" type="text" maxlength="4" placeholder="Ex.: SPQR" value="${ui.allianceTagDraft}" class="w-full px-3 py-2 rounded-lg border border-stone-300 uppercase font-mono font-bold" />
-                         </div>
-                         <button id="btnCreateAlliance" class="w-full py-3 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-bold text-sm cursor-pointer">
-                           🛡️ Fundar Aliança Agora
-                         </button>
-                       </div>`
-                }
-              </div>
-            `;
-          }
-
-          const nextXp = getAllianceNextXp(al.level);
-          const xpPct = Math.min(100, (al.xp / Math.max(1, nextXp)) * 100);
-          const donAmt = Math.max(100, Number(ui.donateAmount) || 500);
-          const canDonate =
-            v.resources.wood >= donAmt &&
-            v.resources.clay >= donAmt &&
-            v.resources.iron >= donAmt &&
-            v.resources.crop >= donAmt;
+          const nextXp = al ? getAllianceNextXp(al.level) : 1500;
+          const xpPct = al ? Math.min(100, Math.round((al.xp / Math.max(1, nextXp)) * 100)) : 0;
+          const donAmt = Number(ui.donateAmount) || 500;
+          const donCost = { wood: donAmt, clay: donAmt, iron: donAmt, crop: donAmt };
+          const canDonate = al && canAfford(v.resources, donCost);
+          const canRecruitNpc = al && al.members.length < ALLIANCE_NPCS.length && cap.embassyLvl >= al.members.length + 1;
 
           return `
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-4">
-                <div class="p-4 rounded-xl bg-gradient-to-r from-sky-900 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span class="text-[11px] font-mono uppercase tracking-wider text-sky-300">Aliança [${al.tag}]</span>
-                    <h2 class="text-lg font-black">${al.name}</h2>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-xl font-black text-amber-300">Nível ${al.level}</div>
-                    <div class="text-[11px] text-sky-200">${fmtNum(al.xp)} / ${fmtNum(nextXp)} XP</div>
-                  </div>
+                <div>
+                  <h2 class="font-bold text-base text-stone-800">Diplomacia &amp; Aliança</h2>
+                  <p class="text-xs text-stone-500">Embaixada Nv.${cap.embassyLvl} • Bônus globais aplicados a todas as suas aldeias.</p>
                 </div>
 
-                <div class="w-full h-2.5 bg-stone-300 rounded-full overflow-hidden">
-                  <div class="h-full bg-sky-600" style="width:${xpPct}%"></div>
-                </div>
+                ${
+                  !hasEmbassy && !al
+                    ? `<div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
+                        <div class="font-bold">🏛️ Construa a Embaixada para Fundar uma Aliança</div>
+                        <p>Vá na aba <strong>Aldeia</strong> e construa a <strong>Embaixada</strong> (requer Edifício Principal Nv.2).</p>
+                      </div>`
+                    : !al
+                    ? `<div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
+                        <div class="font-bold text-sm text-stone-900">Fundar Nova Aliança</div>
+                        <p class="text-stone-600">Escolha o nome e a sigla (Tag de até 4 letras) da sua Aliança para desbloquear bônus permanentes de produção, ataque e comércio.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input id="allianceNameIn" type="text" maxlength="24" placeholder="Nome da Aliança" value="${ui.allianceNameDraft}" class="sm:col-span-2 px-3 py-2 rounded-lg border border-stone-300 font-semibold" />
+                          <input id="allianceTagIn" type="text" maxlength="4" placeholder="TAG (ex: SPQR)" value="${ui.allianceTagDraft}" class="px-3 py-2 rounded-lg border border-stone-300 font-mono font-bold uppercase" />
+                        </div>
+                        <button id="btnCreateAlliance" class="w-full py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-bold cursor-pointer">🛡️ Fundar Aliança</button>
+                      </div>`
+                    : `<div class="p-4 rounded-xl bg-gradient-to-br from-sky-900 to-indigo-950 text-white space-y-3">
+                        <div class="flex items-center justify-between">
+                          <div>
+                            <span class="text-xs font-mono text-sky-300">[${al.tag}]</span>
+                            <h3 class="text-lg font-black">${al.name}</h3>
+                          </div>
+                          <span class="px-3 py-1 rounded-full bg-amber-400 text-stone-950 font-black text-xs">Nível ${al.level}</span>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                          <div class="flex justify-between text-sky-200">
+                            <span>Experiência da Aliança</span>
+                            <span class="font-mono font-bold">${fmtNum(al.xp)} / ${fmtNum(nextXp)} XP</span>
+                          </div>
+                          <div class="w-full h-2 bg-sky-950 rounded-full overflow-hidden">
+                            <div class="h-full bg-amber-400" style="width:${xpPct}%"></div>
+                          </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                          <div class="p-2 rounded-lg bg-white/10">
+                            <div class="text-sky-200 text-[10px]">Produção</div>
+                            <strong class="text-emerald-300">+${alBonus.prodPct}%</strong>
+                          </div>
+                          <div class="p-2 rounded-lg bg-white/10">
+                            <div class="text-sky-200 text-[10px]">Ataque Tropas</div>
+                            <strong class="text-amber-300">+${alBonus.atkPct}%</strong>
+                          </div>
+                          <div class="p-2 rounded-lg bg-white/10">
+                            <div class="text-sky-200 text-[10px]">Vel. Mercadores</div>
+                            <strong class="text-cyan-300">+${alBonus.merchantPct}%</strong>
+                          </div>
+                        </div>
+                      </div>
 
-                <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div class="p-3 rounded-xl bg-white border border-stone-200">
-                    <div class="text-stone-500">Produção Global</div>
-                    <div class="text-base font-black text-emerald-700">+${bonuses.prodPct}%</div>
-                  </div>
-                  <div class="p-3 rounded-xl bg-white border border-stone-200">
-                    <div class="text-stone-500">Ataque Militar</div>
-                    <div class="text-base font-black text-red-700">+${bonuses.atkPct}%</div>
-                  </div>
-                  <div class="p-3 rounded-xl bg-white border border-stone-200">
-                    <div class="text-stone-500">Vel. Mercadores</div>
-                    <div class="text-base font-black text-cyan-700">+${bonuses.merchantPct}%</div>
-                  </div>
-                </div>
-
-                <div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
-                  <div class="font-bold text-sm text-stone-900">Tesouro da Aliança (Contribuir Recursos)</div>
-                  <p class="text-stone-600">Doe recursos iguais de <strong>${v.name}</strong> para aumentar o XP e o nível da Aliança.</p>
-                  <div class="flex flex-wrap items-center gap-2">
-                    ${[250, 500, 1500, 5000]
-                      .map(
-                        (amt) => `<button data-donamt="${amt}" class="btn-don-preset px-3 py-1.5 rounded-lg border font-bold cursor-pointer ${donAmt === amt ? 'bg-sky-700 text-white border-sky-700' : 'bg-stone-100 text-stone-700 border-stone-300'}">${fmtNum(amt)} cada</button>`
-                      )
-                      .join('')}
-                  </div>
-                  <button id="btnDonateAlliance" ${canDonate ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold text-xs cursor-pointer ${canDonate ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                    🏛️ Doar ${fmtNum(donAmt)} de cada recurso (+${fmtNum(donAmt * 4)} XP)
-                  </button>
-                </div>
+                      <div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
+                        <div class="font-bold text-sm text-stone-800">Tesouro da Aliança (Doar Recursos para Evoluir)</div>
+                        <div class="flex flex-wrap gap-2">
+                          ${[250, 500, 1500, 5000]
+                            .map(
+                              (amt) => `<button data-donamt="${amt}" class="btn-don-preset px-3 py-1.5 rounded-lg border font-bold cursor-pointer ${donAmt === amt ? 'bg-sky-700 text-white border-sky-600' : 'bg-stone-100 text-stone-700 border-stone-300'}">${fmtNum(amt)} de cada</button>`
+                            )
+                            .join('')}
+                        </div>
+                        <button id="btnDonateAlliance" ${canDonate ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canDonate ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                          🏛️ Doar ${fmtNum(donAmt)} Mad, Bar, Fer e Cer (+${fmtNum(donAmt * 4)} XP)
+                        </button>
+                      </div>`
+                }
               </div>
 
               <div class="lg:col-span-5 bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-3 text-xs">
                 <div class="flex items-center justify-between">
-                  <h3 class="font-bold text-sm text-stone-800">Membros da Aliança (${1 + al.members.length}/5)</h3>
+                  <h3 class="font-bold text-sm text-stone-800">Membros &amp; Comandantes Aliados</h3>
                   ${
-                    al.members.length < ALLIANCE_NPCS.length
-                      ? `<button id="btnRecruitMember" class="px-2.5 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white font-bold cursor-pointer">+ Recrutar Aliado</button>`
+                    al && al.members.length < ALLIANCE_NPCS.length
+                      ? `<button id="btnRecruitMember" ${canRecruitNpc ? '' : 'disabled'} class="px-2.5 py-1.5 rounded-lg font-bold cursor-pointer ${canRecruitNpc ? 'bg-sky-700 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                          ${canRecruitNpc ? '+ Recrutar Aliado' : `Req. Embaixada Nv.${al.members.length + 1}`}
+                        </button>`
                       : ''
                   }
                 </div>
-
-                <div class="space-y-2">
-                  <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-300 flex items-center justify-between">
-                    <div>
-                      <div class="font-bold text-stone-900">Você (Fundador)</div>
-                      <div class="text-[11px] text-amber-800">Líder Supremo • ${state.villages.length} aldeia(s)</div>
-                    </div>
-                    <span class="font-mono font-bold text-stone-800">Poder ${fmtNum(totalPlayerPower)}</span>
-                  </div>
-                  ${al.members
-                    .map(
-                      (m) => `<div class="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between">
-                        <div>
-                          <div class="font-bold text-stone-900">${m.name}</div>
-                          <div class="text-[11px] text-stone-500">${m.role}</div>
+                ${
+                  !al
+                    ? `<p class="text-stone-500">Funde sua Aliança para convidar comandantes aliados e somar pontos de poder.</p>`
+                    : `<div class="space-y-2">
+                        <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex justify-between items-center">
+                          <div><strong>Você (Fundador)</strong> <span class="text-stone-500">• ${state.villages.length} aldeia(s)</span></div>
+                          <span class="font-bold text-amber-800">Líder</span>
                         </div>
-                        <span class="font-mono font-bold text-stone-700">Poder ${fmtNum(m.power)}</span>
+                        ${al.members
+                          .map(
+                            (m) => `<div class="p-2.5 rounded-lg bg-stone-50 border border-stone-200 flex justify-between items-center">
+                              <div><strong>${m.name}</strong> <span class="text-stone-500">• ${m.role}</span></div>
+                              <span class="font-mono font-bold text-sky-800">Poder ${m.power}</span>
+                            </div>`
+                          )
+                          .join('')}
                       </div>`
-                    )
-                    .join('')}
-                </div>
+                }
               </div>
             </div>
           `;
         }
 
         // ====================================================================
-        // ABA MAPA 151x151
+        // ABA MAPA
         // ====================================================================
         if (ui.tab === 'map') {
           const cx = ui.mapCenter.x;
@@ -1959,30 +1931,30 @@
         }
 
         // ====================================================================
-        // ABA QUARTEL & NOVAS TROPAS
+        // ABA QUARTEL & TROPAS
         // ====================================================================
         if (ui.tab === 'barracks') {
-          const resLvl = v.slots.filter((s) => s.buildingType === 'residence').reduce((m, s) => Math.max(m, s.level), 0);
-          const barLvl = v.slots.filter((s) => s.buildingType === 'barracks').reduce((m, s) => Math.max(m, s.level), 0);
+          const resLvl = cap.resLvl;
+          const barLvl = cap.barracksLvl;
           return `
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-3">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 class="font-bold text-base text-stone-800">Quartel &amp; Colonização</h2>
-                    <p class="text-xs text-stone-500">Quartel Nv.${barLvl} • Residência Nv.${resLvl} • Consumo tropas: <strong class="text-red-700">-${prod.upkeep}/h</strong></p>
+                    <p class="text-xs text-stone-500">Quartel Nv.${barLvl} • Residência Nv.${resLvl} • Bônus Ataque Aliança: <strong class="text-sky-700">+${alBonus.atkPct}%</strong> • Consumo: <strong class="text-red-700">-${prod.upkeep}/h</strong></p>
                   </div>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  ${UNIT_ORDER.map((u) => `<div class="p-2 rounded-xl bg-white border border-stone-200"><div class="text-[11px] text-stone-500 truncate">${UNIT_CONFIG[u].name}</div><div class="text-base font-black text-stone-900">${v.troops[u]}</div></div>`).join('')}
+                  ${UNIT_ORDER.map((u) => `<div class="p-2 rounded-xl bg-white border border-stone-200"><div class="text-[11px] text-stone-500 truncate">${UNIT_CONFIG[u].name}</div><div class="text-base font-black text-stone-900">${v.troops[u] || 0}</div></div>`).join('')}
                 </div>
                 <div class="space-y-2.5">
                   ${UNIT_ORDER.map((u) => {
                     const c = UNIT_CONFIG[u];
-                    const curLvl = c.reqBuilding === 'residence' ? resLvl : barLvl;
-                    const unlocked = curLvl >= c.reqLvl;
+                    const unlocked =
+                      c.reqBuilding === 'residence' ? resLvl >= c.reqLvl : barLvl >= c.reqLvl;
                     const ok = unlocked && canAfford(v.resources, c.cost);
-                    const reqLabel =
+                    const reqText =
                       c.reqBuilding === 'residence'
                         ? `Req. Residência Nv.${c.reqLvl}`
                         : `Req. Quartel Nv.${c.reqLvl}`;
@@ -1994,7 +1966,7 @@
                           <div class="text-[11px] font-semibold text-stone-700 mt-1">Custo: ${c.cost.wood} Mad • ${c.cost.clay} Bar • ${c.cost.iron} Fer • ${c.cost.crop} Cer</div>
                         </div>
                         <button data-train="${u}" ${ok ? '' : 'disabled'} class="btn-train px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                          ${unlocked ? 'Treinar +1' : reqLabel}
+                          ${unlocked ? 'Treinar +1' : reqText}
                         </button>
                       </div>
                     `;
@@ -2028,7 +2000,7 @@
                   : state.reports
                       .map(
                         (r) => `<div class="p-3 rounded-xl border ${r.outcome === 'victory' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-red-50/70 border-red-200'} space-y-1">
-                          <div class="flex items-center justify-between text-xs"><strong>${r.title}</strong><span class="font-bold uppercase">${r.kind === 'trade' ? 'Comércio' : r.outcome === 'victory' ? 'Vitória' : 'Derrota'}</span></div>
+                          <div class="flex items-center justify-between text-xs"><strong>${r.title}</strong><span class="font-bold uppercase">${r.outcome === 'victory' ? 'Concluído' : 'Derrota'}</span></div>
                           <p class="text-xs text-stone-700">${r.info}</p>
                         </div>`
                       )
@@ -2039,7 +2011,7 @@
         }
 
         // ====================================================================
-        // ABA CENTRO DA ALDEIA
+        // ABA CENTRO DA ALDEIA (24 TERRENOS)
         // ====================================================================
         if (ui.tab === 'center') {
           const slot = v.slots.find((s) => s.id === ui.selectedSlotId) || v.slots[0];
@@ -2047,16 +2019,16 @@
           return `
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm">
-                <h2 class="font-bold text-base text-stone-800 mb-3">Centro da Aldeia (12 Terrenos)</h2>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                <h2 class="font-bold text-base text-stone-800 mb-3">Centro da Aldeia (24 Terrenos)</h2>
+                <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   ${v.slots
                     .map((s) => {
                       const sel = s.id === slot.id;
                       if (!s.buildingType) {
-                        return `<button data-slot="${s.id}" class="slot-btn aspect-square rounded-xl border-2 border-dashed p-2 flex flex-col items-center justify-center text-center cursor-pointer ${sel ? 'bg-amber-50 border-amber-500 text-amber-900' : 'bg-stone-100 border-stone-300 text-stone-500'}"><span class="text-lg">+</span><span class="text-[11px] font-bold">Vazio #${s.id}</span></button>`;
+                        return `<button data-slot="${s.id}" class="slot-btn aspect-square rounded-xl border-2 border-dashed p-1.5 flex flex-col items-center justify-center text-center cursor-pointer ${sel ? 'bg-amber-50 border-amber-500 text-amber-900' : 'bg-stone-100 border-stone-300 text-stone-500'}"><span class="text-base leading-none">+</span><span class="text-[10px] font-bold">Vazio #${s.id}</span></button>`;
                       }
                       const c = BUILDING_CONFIG[s.buildingType];
-                      return `<button data-slot="${s.id}" class="slot-btn aspect-square rounded-xl bg-gradient-to-br ${c.grad} border-2 p-2 text-white flex flex-col items-center justify-between text-center cursor-pointer ${sel ? 'ring-4 ring-amber-400' : ''}"><span class="text-[10px] font-bold self-end bg-black/30 px-1.5 rounded">Nv.${s.level}</span><span class="text-xs font-bold leading-tight">${c.name}</span><span class="text-[9px] opacity-75">#${s.id}</span></button>`;
+                      return `<button data-slot="${s.id}" class="slot-btn aspect-square rounded-xl bg-gradient-to-br ${c.grad} border-2 p-1.5 text-white flex flex-col items-center justify-between text-center cursor-pointer ${sel ? 'ring-4 ring-amber-400' : ''}"><span class="text-[9px] font-bold self-end bg-black/30 px-1 rounded">Nv.${s.level}</span><span class="text-[11px] font-bold leading-tight">${c.name}</span><span class="text-[8px] opacity-75">#${s.id}</span></button>`;
                     })
                     .join('')}
                 </div>
