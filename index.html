@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travian Idle v1.4.1 — Cloud Save (Supabase)</title>
+  <title>Travian Idle v1.4.3 — Cloud Save (Supabase)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,7 +33,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
 
     // ========================================================================
-    // TRAVIAN IDLE V1.4.1 — VELOCIDADE FIXA 1X, 24 SLOTS, MERCADO E ALIANÇAS
+    // TRAVIAN IDLE V1.4.3 — MERCADOR 200:150 + QUARTEL + VELOCIDADE 1X
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
@@ -46,6 +47,7 @@
       const MAX_BUILDING_LEVEL = 10;
       const MAX_QUEUE_SIZE = 2;
       const BASE_STORAGE = 800;
+      const MERCHANT_EXCHANGE_RATE = 0.75; // Proporção 200 por 150 (75%)
 
       const FIELD_PROD_TABLE = [5, 12, 22, 38, 62, 96, 145, 215, 310, 440, 620];
       const STORAGE_BONUS_TABLE = [0, 1200, 2200, 3800, 6200, 9600, 14500, 21500, 31000, 44000, 62000];
@@ -152,7 +154,7 @@
         marketplace: {
           name: 'Mercado',
           tagline: 'Envia recursos entre aldeias',
-          desc: 'Libera caravanas de mercadores para transportar recursos entre suas aldeias e trocar excedentes.',
+          desc: 'Libera caravanas de mercadores para transportar recursos entre suas aldeias e trocar excedentes (200:150).',
           baseCost: { wood: 140, clay: 160, iron: 120, crop: 60 },
           baseTime: 24,
           allowMultiple: false,
@@ -207,11 +209,13 @@
       ];
 
       // ======================================================================
-      // UNIDADES MILITARES (INCLUINDO GUARDA PRETORIANA E CATAPULTA)
+      // UNIDADES MILITARES COM ÍCONES EXCLUSIVOS
       // ======================================================================
       const UNIT_CONFIG = {
         legionnaire: {
           name: 'Infantaria Leve',
+          icon: '🗡️',
+          badgeBg: 'bg-red-100 border-red-300 text-red-900',
           role: 'Ataque & Saque',
           reqBuilding: 'barracks',
           reqLvl: 1,
@@ -225,6 +229,8 @@
         },
         spearman: {
           name: 'Lanceiro',
+          icon: '🛡️',
+          badgeBg: 'bg-sky-100 border-sky-300 text-sky-900',
           role: 'Defesa Pesada',
           reqBuilding: 'barracks',
           reqLvl: 1,
@@ -238,6 +244,8 @@
         },
         praetorian: {
           name: 'Guarda Pretoriana',
+          icon: '🪖',
+          badgeBg: 'bg-amber-100 border-amber-300 text-amber-900',
           role: 'Elite de Vanguarda',
           reqBuilding: 'barracks',
           reqLvl: 3,
@@ -251,6 +259,8 @@
         },
         equites: {
           name: 'Cavalaria Rápida',
+          icon: '🐎',
+          badgeBg: 'bg-orange-100 border-orange-300 text-orange-900',
           role: 'Assalto Veloz',
           reqBuilding: 'barracks',
           reqLvl: 2,
@@ -264,6 +274,8 @@
         },
         scout: {
           name: 'Espião',
+          icon: '🕵️',
+          badgeBg: 'bg-emerald-100 border-emerald-300 text-emerald-900',
           role: 'Reconhecimento',
           reqBuilding: 'barracks',
           reqLvl: 1,
@@ -277,6 +289,8 @@
         },
         catapult: {
           name: 'Catapulta de Cerco',
+          icon: '☄️',
+          badgeBg: 'bg-stone-200 border-stone-400 text-stone-900',
           role: 'Artilharia Pesada',
           reqBuilding: 'barracks',
           reqLvl: 5,
@@ -290,6 +304,8 @@
         },
         settler: {
           name: 'Colonizador',
+          icon: '🚩',
+          badgeBg: 'bg-purple-100 border-purple-300 text-purple-900',
           role: 'Fundar Aldeia (3x)',
           reqBuilding: 'residence',
           reqLvl: 5,
@@ -505,6 +521,24 @@
 
       function getAllianceNextXp(level) {
         return Math.round(1500 * Math.pow(1.65, Math.max(0, level - 1)));
+      }
+
+      function multiplyCost(cost, count) {
+        const n = Math.max(1, Math.floor(Number(count) || 1));
+        return {
+          wood: cost.wood * n,
+          clay: cost.clay * n,
+          iron: cost.iron * n,
+          crop: cost.crop * n,
+        };
+      }
+
+      function getMaxAffordableUnits(res, cost) {
+        const byW = cost.wood > 0 ? Math.floor(res.wood / cost.wood) : 9999;
+        const byC = cost.clay > 0 ? Math.floor(res.clay / cost.clay) : 9999;
+        const byI = cost.iron > 0 ? Math.floor(res.iron / cost.iron) : 9999;
+        const byF = cost.crop > 0 ? Math.floor(res.crop / cost.crop) : 9999;
+        return Math.max(0, Math.min(byW, byC, byI, byF));
       }
 
       // ======================================================================
@@ -853,7 +887,7 @@
         const alliance = prev.alliance ? { ...prev.alliance, members: [...(prev.alliance.members || [])] } : null;
         let event = null;
 
-        // 1. Treinamento de tropas
+        // 1. Treinamento de tropas (suporta lotes de 1 ou vários soldados)
         for (const v of villages) {
           const nextTrn = [];
           for (const item of v.training) {
@@ -862,6 +896,13 @@
             if (newly > 0) {
               v.troops[item.unitType] = (v.troops[item.unitType] || 0) + newly;
               cloud.dirty = true;
+              if (!event && done === item.count) {
+                const uCfg = UNIT_CONFIG[item.unitType];
+                event = {
+                  sound: 'build',
+                  toast: `${uCfg.icon} Treino concluído: +${item.count} ${uCfg.name}!`,
+                };
+              }
             }
             if (done < item.count) nextTrn.push({ ...item, completedCount: done });
           }
@@ -1152,6 +1193,15 @@
         authEmail: '',
         authPassword: '',
         authLoading: false,
+        trainQty: {
+          legionnaire: 1,
+          spearman: 1,
+          praetorian: 1,
+          equites: 1,
+          scout: 1,
+          catapult: 1,
+          settler: 1,
+        },
         tradeTargetId: '',
         tradeWood: 0,
         tradeClay: 0,
@@ -1404,6 +1454,11 @@
         const peaceDays = Math.floor(peaceRemMs / 86400000);
         const peaceHours = Math.floor((peaceRemMs % 86400000) / 3600000);
 
+        const activeTrainingUnits = v.training.reduce(
+          (sum, item) => sum + Math.max(0, item.count - item.completedCount),
+          0
+        );
+
         const cloudBadge = !isSupabaseConfigured
           ? `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-amber-950/70 hover:bg-amber-900 border border-amber-500/50 text-amber-200 text-xs font-bold cursor-pointer">☁️ Configurar Nuvem</button>`
           : cloud.user
@@ -1421,7 +1476,7 @@
             <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.1</span>
+                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.3</span>
                   ${
                     state.alliance
                       ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200 text-[11px] font-extrabold">[${state.alliance.tag}] Nv.${state.alliance.level}</span>`
@@ -1512,7 +1567,7 @@
               ${[
                 { id: 'fields', label: 'Campos', icon: '🌾' },
                 { id: 'center', label: 'Aldeia', icon: '🏛️', badge: v.queue.length > 0 ? `${v.queue.length}/2` : '' },
-                { id: 'barracks', label: 'Quartel', icon: '⚔️', badge: state.marches.length > 0 ? `${state.marches.length}` : '' },
+                { id: 'barracks', label: 'Quartel', icon: '⚔️', badge: activeTrainingUnits > 0 ? `${activeTrainingUnits}` : state.marches.length > 0 ? `${state.marches.length}` : '' },
                 { id: 'market', label: 'Mercado', icon: '⚖️', badge: (state.tradeCaravans || []).length > 0 ? `${state.tradeCaravans.length}` : '' },
                 { id: 'alliance', label: 'Aliança', icon: '🛡️', badge: state.alliance ? `Nv.${state.alliance.level}` : '' },
                 { id: 'map', label: 'Mapa', icon: '🗺️', badge: v.oases.length > 0 ? `${v.oases.length}` : '' },
@@ -1576,12 +1631,14 @@
             v.resources.iron >= (Number(ui.tradeIron) || 0) &&
             v.resources.crop >= (Number(ui.tradeCrop) || 0);
 
-          const swapAmt = Math.max(50, Math.floor(Number(ui.swapAmount) || 200));
+          const swapAmt = Math.max(4, Math.floor(Number(ui.swapAmount) || 200));
+          const swapReceived = Math.floor(swapAmt * MERCHANT_EXCHANGE_RATE);
           const canSwap =
             hasMarket &&
             ui.swapFrom !== ui.swapTo &&
             v.resources[ui.swapFrom] >= swapAmt &&
-            swapAmt <= cap.merchantCap;
+            swapAmt <= cap.merchantCap &&
+            swapReceived > 0;
 
           return `
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -1602,7 +1659,7 @@
                     : otherVillages.length === 0
                     ? `<div class="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs space-y-1">
                         <div class="font-bold">🚩 Você ainda possui apenas 1 aldeia</div>
-                        <p>Treine 3 Colonizadores na Residência (Nv.5) e funde uma Colônia no Mapa para enviar caravanas de recursos entre suas aldeias! Enquanto isso, você pode usar a <strong>Troca de Mercadores 1:1</strong> ao lado.</p>
+                        <p>Treine 3 Colonizadores na Residência (Nv.5) e funde uma Colônia no Mapa para enviar caravanas de recursos entre suas aldeias! Enquanto isso, você pode usar a <strong>Troca de Mercadores (200 por 150)</strong> abaixo.</p>
                       </div>`
                     : `<div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
                         <div>
@@ -1652,8 +1709,11 @@
                 }
 
                 <div class="p-4 rounded-xl bg-white border border-stone-200 space-y-2.5 text-xs">
-                  <h3 class="font-bold text-sm text-stone-800">Mercador Viajante (Troca 1:1 na Aldeia)</h3>
-                  <p class="text-stone-500">Equilibre seus estoques trocando recursos excedentes instantaneamente (limite por viagem: ${fmtNum(cap.merchantCap)}).</p>
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-stone-800">Mercador Viajante (Taxa 200 por 150)</h3>
+                    <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[11px]">Proporção 75%</span>
+                  </div>
+                  <p class="text-stone-500">Troque excedentes com os mercadores da estrada na proporção de <strong>200 entregues por 150 recebidos</strong> (limite por viagem: ${fmtNum(cap.merchantCap)}).</p>
                   <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <select id="swapFromSel" class="px-2.5 py-2 rounded-lg border border-stone-300 font-bold">
                       ${['wood', 'clay', 'iron', 'crop']
@@ -1665,10 +1725,10 @@
                         .map((rk) => `<option value="${rk}" ${ui.swapTo === rk ? 'selected' : ''}>Receber: ${FIELD_CONFIG[rk].label}</option>`)
                         .join('')}
                     </select>
-                    <input id="swapAmountInput" type="number" min="50" step="50" max="${Math.max(50, cap.merchantCap)}" value="${swapAmt}" class="px-2.5 py-2 rounded-lg border border-stone-300 font-mono font-bold" />
+                    <input id="swapAmountInput" type="number" min="4" step="20" max="${Math.max(4, cap.merchantCap)}" value="${swapAmt}" class="px-2.5 py-2 rounded-lg border border-stone-300 font-mono font-bold" />
                   </div>
                   <button id="btnExecuteSwap" ${canSwap ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canSwap ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                    🔄 Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapTo].label}
+                    🔄 Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${fmtNum(swapReceived)} ${FIELD_CONFIG[ui.swapTo].label}
                   </button>
                 </div>
               </div>
@@ -1930,57 +1990,175 @@
         }
 
         // ====================================================================
-        // ABA QUARTEL & TROPAS
+        // ABA QUARTEL & TROPAS (COM ÍCONES, TEMPORIZADOR E RECRUTAMENTO EM LOTE)
         // ====================================================================
         if (ui.tab === 'barracks') {
           const resLvl = cap.resLvl;
           const barLvl = cap.barracksLvl;
+          const barSpeedMult = Math.max(0.4, 1 - Math.max(0, barLvl - 1) * 0.03);
+
           return `
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-3">
+              <div class="lg:col-span-7 bg-stone-50 rounded-2xl border border-stone-300 p-4 shadow-sm space-y-3.5">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 class="font-bold text-base text-stone-800">Quartel &amp; Colonização</h2>
                     <p class="text-xs text-stone-500">Quartel Nv.${barLvl} • Residência Nv.${resLvl} • Bônus Ataque Aliança: <strong class="text-sky-700">+${alBonus.atkPct}%</strong> • Consumo: <strong class="text-red-700">-${prod.upkeep}/h</strong></p>
                   </div>
                 </div>
+
+                <!-- Guarnição atual com ícones -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  ${UNIT_ORDER.map((u) => `<div class="p-2 rounded-xl bg-white border border-stone-200"><div class="text-[11px] text-stone-500 truncate">${UNIT_CONFIG[u].name}</div><div class="text-base font-black text-stone-900">${v.troops[u] || 0}</div></div>`).join('')}
+                  ${UNIT_ORDER.map((u) => {
+                    const uc = UNIT_CONFIG[u];
+                    return `
+                      <div class="p-2.5 rounded-xl bg-white border border-stone-200 flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-lg border flex items-center justify-center text-lg shrink-0 ${uc.badgeBg}">
+                          ${uc.icon}
+                        </div>
+                        <div class="min-w-0">
+                          <div class="text-[11px] text-stone-500 truncate">${uc.name}</div>
+                          <div class="text-base font-black text-stone-900 leading-tight">${fmtNum(v.troops[u] || 0)}</div>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
                 </div>
-                <div class="space-y-2.5">
+
+                <!-- Lista de recrutamento com ícones e seletor de quantidade -->
+                <div class="space-y-3">
                   ${UNIT_ORDER.map((u) => {
                     const c = UNIT_CONFIG[u];
                     const unlocked =
                       c.reqBuilding === 'residence' ? resLvl >= c.reqLvl : barLvl >= c.reqLvl;
-                    const ok = unlocked && canAfford(v.resources, c.cost);
+                    const maxAfford = unlocked ? getMaxAffordableUnits(v.resources, c.cost) : 0;
+                    const qty = Math.max(1, Math.min(999, Math.floor(Number(ui.trainQty[u]) || 1)));
+                    const totalCost = multiplyCost(c.cost, qty);
+                    const unitSec = Math.max(1, Math.round(c.trainSec * barSpeedMult));
+                    const totalSec = unitSec * qty;
+                    const ok = unlocked && canAfford(v.resources, totalCost);
                     const reqText =
                       c.reqBuilding === 'residence'
                         ? `Req. Residência Nv.${c.reqLvl}`
                         : `Req. Quartel Nv.${c.reqLvl}`;
+
                     return `
-                      <div class="p-3 rounded-xl bg-white border border-stone-200 flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <div class="font-bold text-sm text-stone-900">${c.name} <span class="text-[11px] font-normal text-stone-500">(${c.role})</span></div>
-                          <div class="text-[11px] text-stone-500">Atq: ${c.atk} • Def: ${c.def} • Vel: ${c.speed} c/h • Carga: ${c.carry} • ${fmtTime(c.trainSec)}</div>
-                          <div class="text-[11px] font-semibold text-stone-700 mt-1">Custo: ${c.cost.wood} Mad • ${c.cost.clay} Bar • ${c.cost.iron} Fer • ${c.cost.crop} Cer</div>
+                      <div class="p-3.5 rounded-xl bg-white border border-stone-200 space-y-2.5 shadow-xs">
+                        <div class="flex items-start justify-between gap-3">
+                          <div class="flex items-start gap-3 min-w-0">
+                            <div class="w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl shrink-0 shadow-xs ${c.badgeBg}">
+                              ${c.icon}
+                            </div>
+                            <div class="min-w-0">
+                              <div class="font-bold text-sm text-stone-900 flex flex-wrap items-center gap-1.5">
+                                <span>${c.name}</span>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">${c.role}</span>
+                              </div>
+                              <div class="text-[11px] text-stone-500 mt-0.5">
+                                Atq: <strong>${c.atk}</strong> • Def: <strong>${c.def}</strong> • Vel: <strong>${c.speed}</strong> c/h • Carga: <strong>${c.carry}</strong> • ${fmtTime(unitSec)}/unid.
+                              </div>
+                              <div class="text-[11px] font-semibold text-stone-700 mt-1">
+                                Custo (${qty}x): <span class="text-emerald-800">${fmtNum(totalCost.wood)} Mad</span> • <span class="text-orange-800">${fmtNum(totalCost.clay)} Bar</span> • <span class="text-slate-800">${fmtNum(totalCost.iron)} Fer</span> • <span class="text-amber-800">${fmtNum(totalCost.crop)} Cer</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <button data-train="${u}" ${ok ? '' : 'disabled'} class="btn-train px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                          ${unlocked ? 'Treinar +1' : reqText}
-                        </button>
+
+                        ${
+                          unlocked
+                            ? `<div class="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-1.5">
+                                  <span class="text-[11px] font-bold text-stone-500">Qtd:</span>
+                                  <input data-qtyinput="${u}" type="number" min="1" max="999" value="${qty}" class="unit-qty-input w-16 px-2 py-1 rounded-lg border border-stone-300 font-mono font-bold text-xs text-center bg-stone-50" />
+                                  <button data-setqty="${u}:1" class="btn-set-qty px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 border border-stone-300 text-[11px] font-bold cursor-pointer">1</button>
+                                  <button data-setqty="${u}:5" class="btn-set-qty px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 border border-stone-300 text-[11px] font-bold cursor-pointer">+5</button>
+                                  <button data-setqty="${u}:10" class="btn-set-qty px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 border border-stone-300 text-[11px] font-bold cursor-pointer">+10</button>
+                                  <button data-setqty="${u}:max" ${maxAfford > 0 ? '' : 'disabled'} class="btn-set-qty px-2 py-1 rounded-md border text-[11px] font-bold cursor-pointer ${maxAfford > 0 ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900' : 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'}">
+                                    Máx (${maxAfford})
+                                  </button>
+                                </div>
+
+                                <button data-train="${u}" ${ok ? '' : 'disabled'} class="btn-train px-4 py-2 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                                  <span>${c.icon}</span>
+                                  <span>Treinar ${qty}x (${fmtTime(totalSec)})</span>
+                                </button>
+                              </div>`
+                            : `<div class="pt-1.5 border-t border-stone-100 flex justify-end">
+                                <span class="px-3 py-1.5 rounded-lg bg-stone-200 text-stone-500 text-xs font-bold">${reqText}</span>
+                              </div>`
+                        }
                       </div>
                     `;
                   }).join('')}
                 </div>
               </div>
-              <div class="lg:col-span-5 bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-2.5">
-                <h3 class="font-bold text-sm text-stone-800">Movimentos de Tropas (${state.marches.length})</h3>
-                ${
-                  state.marches.length === 0
-                    ? `<p class="text-xs text-stone-500">Nenhuma marcha ativa. Vá ao Mapa para atacar ou fundar aldeias.</p>`
-                    : state.marches
-                        .map((m) => `<div class="p-2.5 rounded-lg bg-stone-50 border border-stone-200 text-xs flex justify-between"><div><strong>${m.targetName}</strong> <span class="text-stone-500">(${m.status === 'returning' ? 'Retornando' : 'Indo'})</span></div><span class="font-mono font-bold">${fmtTime(Math.max(0, Math.ceil((m.arrivesAt - now) / 1000)))}</span></div>`)
-                        .join('')
-                }
+
+              <!-- Coluna lateral: Fila de Treinamento com Temporizadores + Marchas -->
+              <div class="lg:col-span-5 space-y-4">
+                <div class="bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-3">
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-stone-800">Fila de Treinamento (${v.training.length})</h3>
+                    <span class="text-[11px] text-stone-500">Tempo real</span>
+                  </div>
+
+                  ${
+                    v.training.length === 0
+                      ? `<p class="text-xs text-stone-500">Nenhum recruta em treinamento no momento. Selecione a quantidade ao lado para iniciar.</p>`
+                      : v.training
+                          .map((item) => {
+                            const uc = UNIT_CONFIG[item.unitType];
+                            const perMs = Math.max(250, item.perUnitMs);
+                            const totalUnits = item.count;
+                            const doneUnits = Math.min(totalUnits, item.completedCount);
+                            const remainingUnits = Math.max(0, totalUnits - doneUnits);
+                            const nextBirthAt = item.startedAt + (doneUnits + 1) * perMs;
+                            const finishAllAt = item.startedAt + totalUnits * perMs;
+                            const nextRemSec = Math.max(0, Math.ceil((nextBirthAt - now) / 1000));
+                            const allRemSec = Math.max(0, Math.ceil((finishAllAt - now) / 1000));
+                            const unitElapsedMs = Math.max(0, Math.min(perMs, now - (item.startedAt + doneUnits * perMs)));
+                            const unitPct = Math.min(100, Math.round((unitElapsedMs / perMs) * 100));
+
+                            return `
+                              <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2 text-xs">
+                                <div class="flex items-center justify-between gap-2">
+                                  <div class="flex items-center gap-2 min-w-0">
+                                    <span class="w-8 h-8 rounded-lg border flex items-center justify-center text-base shrink-0 ${uc.badgeBg}">${uc.icon}</span>
+                                    <div class="min-w-0">
+                                      <div class="font-bold text-stone-900 truncate">${remainingUnits}x ${uc.name}</div>
+                                      <div class="text-[11px] text-stone-500">Concluídos: ${doneUnits}/${totalUnits}</div>
+                                    </div>
+                                  </div>
+                                  <div class="text-right shrink-0">
+                                    <div class="text-[10px] uppercase font-bold text-amber-800">Próximo nasce em</div>
+                                    <div class="font-mono font-black text-sm text-stone-900">${fmtTime(nextRemSec)}</div>
+                                  </div>
+                                </div>
+
+                                <div class="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                                  <div class="h-full bg-amber-500 transition-all duration-300" style="width:${unitPct}%"></div>
+                                </div>
+
+                                <div class="flex items-center justify-between text-[11px] text-stone-600">
+                                  <span>Progresso do recruta atual: <strong>${unitPct}%</strong></span>
+                                  <span>Lote total: <strong class="font-mono">${fmtTime(allRemSec)}</strong></span>
+                                </div>
+                              </div>
+                            `;
+                          })
+                          .join('')
+                  }
+                </div>
+
+                <div class="bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-2.5">
+                  <h3 class="font-bold text-sm text-stone-800">Movimentos de Tropas (${state.marches.length})</h3>
+                  ${
+                    state.marches.length === 0
+                      ? `<p class="text-xs text-stone-500">Nenhuma marcha ativa. Vá ao Mapa para atacar ou fundar aldeias.</p>`
+                      : state.marches
+                          .map((m) => `<div class="p-2.5 rounded-lg bg-stone-50 border border-stone-200 text-xs flex justify-between"><div><strong>${m.targetName}</strong> <span class="text-stone-500">(${m.status === 'returning' ? 'Retornando' : 'Indo'})</span></div><span class="font-mono font-bold">${fmtTime(Math.max(0, Math.ceil((m.arrivesAt - now) / 1000)))}</span></div>`)
+                          .join('')
+                  }
+                </div>
               </div>
             </div>
           `;
@@ -2425,7 +2603,7 @@
         const swapAmountInput = document.getElementById('swapAmountInput');
         if (swapAmountInput) {
           swapAmountInput.oninput = (e) => {
-            ui.swapAmount = Math.max(50, Math.floor(Number(e.target.value) || 50));
+            ui.swapAmount = Math.max(4, Math.floor(Number(e.target.value) || 4));
           };
           swapAmountInput.onchange = () => render();
         }
@@ -2433,14 +2611,15 @@
         const btnExecuteSwap = document.getElementById('btnExecuteSwap');
         if (btnExecuteSwap) {
           btnExecuteSwap.onclick = () => {
-            const amt = Math.max(50, Math.floor(Number(ui.swapAmount) || 200));
-            if (ui.swapFrom === ui.swapTo || v.resources[ui.swapFrom] < amt || amt > cap.merchantCap) return;
+            const amt = Math.max(4, Math.floor(Number(ui.swapAmount) || 200));
+            const received = Math.floor(amt * MERCHANT_EXCHANGE_RATE);
+            if (ui.swapFrom === ui.swapTo || v.resources[ui.swapFrom] < amt || amt > cap.merchantCap || received <= 0) return;
             const maxDest = ui.swapTo === 'crop' ? cap.granary : cap.warehouse;
             v.resources[ui.swapFrom] -= amt;
-            v.resources[ui.swapTo] = Math.min(maxDest, v.resources[ui.swapTo] + amt);
+            v.resources[ui.swapTo] = Math.min(maxDest, v.resources[ui.swapTo] + received);
             sfx.play(state.soundEnabled, 'build');
             saveNow();
-            setToast(`Troca concluída: ${fmtNum(amt)} ${FIELD_CONFIG[ui.swapFrom].label} → ${FIELD_CONFIG[ui.swapTo].label}!`);
+            setToast(`Troca concluída: ${fmtNum(amt)} ${FIELD_CONFIG[ui.swapFrom].label} → ${fmtNum(received)} ${FIELD_CONFIG[ui.swapTo].label}!`);
           };
         }
 
@@ -2599,19 +2778,56 @@
           };
         });
 
+        // Eventos de Recrutamento em Lote no Quartel
+        document.querySelectorAll('.unit-qty-input').forEach((inp) => {
+          inp.oninput = (e) => {
+            const u = inp.dataset.qtyinput;
+            ui.trainQty[u] = Math.max(1, Math.min(999, Math.floor(Number(e.target.value) || 1)));
+          };
+          inp.onchange = () => render();
+        });
+
+        document.querySelectorAll('.btn-set-qty').forEach((btn) => {
+          btn.onclick = () => {
+            const [u, mode] = btn.dataset.setqty.split(':');
+            const cfg = UNIT_CONFIG[u];
+            if (mode === 'max') {
+              const maxA = getMaxAffordableUnits(v.resources, cfg.cost);
+              ui.trainQty[u] = Math.max(1, maxA);
+            } else if (mode === '1') {
+              ui.trainQty[u] = 1;
+            } else {
+              const add = Number(mode) || 1;
+              const cur = Number(ui.trainQty[u]) || 1;
+              ui.trainQty[u] = Math.min(999, cur === 1 ? add : cur + add);
+            }
+            render();
+          };
+        });
+
         document.querySelectorAll('.btn-train').forEach((b) => {
           b.onclick = () => {
             const u = b.dataset.train;
             const cfg = UNIT_CONFIG[u];
-            if (!canAfford(v.resources, cfg.cost)) return;
+            const qty = Math.max(1, Math.min(999, Math.floor(Number(ui.trainQty[u]) || 1)));
+            const totalCost = multiplyCost(cfg.cost, qty);
+            if (!canAfford(v.resources, totalCost)) return;
             const barLvl = v.slots.filter((s) => s.buildingType === 'barracks').reduce((m, s) => Math.max(m, s.level), 0);
             const mult = Math.max(0.4, 1 - Math.max(0, barLvl - 1) * 0.03);
             const tNow = Date.now();
-            v.resources = subRes(v.resources, cfg.cost);
-            v.training.push({ id: `t_${tNow}_${Math.random()}`, unitType: u, count: 1, completedCount: 0, startedAt: tNow, perUnitMs: Math.max(1000, Math.round(cfg.trainSec * 1000 * mult)) });
+            v.resources = subRes(v.resources, totalCost);
+            v.training.push({
+              id: `t_${tNow}_${Math.random()}`,
+              unitType: u,
+              count: qty,
+              completedCount: 0,
+              startedAt: tNow,
+              perUnitMs: Math.max(1000, Math.round(cfg.trainSec * 1000 * mult)),
+            });
+            ui.trainQty[u] = 1;
             sfx.play(state.soundEnabled, 'build');
             saveNow();
-            setToast(`Treinando 1x ${cfg.name}!`);
+            setToast(`${cfg.icon} Treinando ${qty}x ${cfg.name}!`);
           };
         });
 
@@ -2847,3 +3063,4 @@
   </script>
 </body>
 </html>
+```
