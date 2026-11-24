@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travian Idle v1.4.3 — Cloud Save (Supabase)</title>
+  <title>Travian Idle v1.4.4 — Cloud Save (Supabase)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -33,7 +33,67 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
 
     // ========================================================================
-    // TRAVIAN IDLE V1.4.3 — MERCADOR 200:150 + QUARTEL + VELOCIDADE 1X
+    // BIBLIOTECA DE ÍCONES VETORIAIS SVG EXCLUSIVOS (ESTRATÉGIA MEDIEVAL)
+    // ========================================================================
+    const SVG_ICONS = {
+      // Recursos
+      wood: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="7" cy="15" r="3"/><circle cx="15" cy="16" r="3"/><circle cx="11" cy="9" r="3"/><path d="M9.5 7.5 18 4l2 4-5.5 2.5"/><path d="M17.5 14.5 21 13l1 3-4.5 2"/></svg>`,
+      clay: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 16h18v4H3z"/><path d="M5 12h14v4H5z"/><path d="M7 8h10v4H7z"/><path d="M12 8v4"/><path d="M9 12v4"/><path d="M15 12v4"/><path d="M12 16v4"/></svg>`,
+      iron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polygon points="6 14 10 8 18 8 21 14 17 19 3 19"/><line x1="10" y1="8" x2="7" y2="19"/><line x1="18" y1="8" x2="17" y2="19"/><line x1="6" y1="14" x2="21" y2="14"/></svg>`,
+      crop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 21V3"/><path d="M12 7c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4Z"/><path d="M12 7c2.5 0 4-1.5 4-4-2.5 0-4 1.5-4 4Z"/><path d="M12 12c-3 0-5-1.5-5-4 3 0 5 1.5 5 4Z"/><path d="M12 12c3 0 5-1.5 5-4-3 0-5 1.5-5 4Z"/><path d="M12 17c-3 0-5-1.5-5-4 3 0 5 1.5 5 4Z"/><path d="M12 17c3 0 5-1.5 5-4-3 0-5 1.5-5 4Z"/></svg>`,
+
+      // Unidades Militares
+      legionnaire: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
+      spearman: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><line x1="4" y1="20" x2="20" y2="4"/><polyline points="15 4 20 4 20 9"/></svg>`,
+      praetorian: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 2c3.5 0 6 2 6 4H6c0-2 2.5-4 6-4Z"/><path d="M6 6h12v6a6 6 0 0 1-12 0V6Z"/><path d="M9 11h6"/><path d="M12 11v5"/><path d="M5 10H3v3h2"/><path d="M19 10h2v3h-2"/></svg>`,
+      equites: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M19 4c-1.5 0-3 1-4 2.5L11 6l-4 4v5l3 2v4h4v-5l3-2c1.5-1 2.5-3 2.5-5V6l1.5-2Z"/><circle cx="15" cy="9" r="1"/><path d="M7 12 4 15v5"/></svg>`,
+      scout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 3 5 11v6l7 4 7-4v-6L12 3Z"/><path d="M8 12c1.5 1 6.5 1 8 0"/><circle cx="10" cy="11" r="0.8"/><circle cx="14" cy="11" r="0.8"/></svg>`,
+      catapult: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="7" cy="18" r="2.5"/><circle cx="17" cy="18" r="2.5"/><line x1="4" y1="18" x2="20" y2="18"/><path d="M8 18 12 9l4 9"/><line x1="6" y1="14" x2="18" y2="6"/><circle cx="19" cy="5" r="2"/></svg>`,
+      settler: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/><path d="M14 17h7v4h-7z"/><path d="M17.5 14 13 17h9l-4.5-3Z"/></svg>`,
+
+      // Navegação e Interface
+      nav_fields: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 19c4-3 14-3 18 0"/><path d="M5 15c4-2.5 10-2.5 14 0"/><path d="M12 13V4"/><path d="M12 7c-2 0-3.5-1-3.5-3 2 0 3.5 1 3.5 3Z"/><path d="M12 7c2 0 3.5-1 3.5-3-2 0-3.5 1-3.5 3Z"/></svg>`,
+      nav_center: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 21V9l4-3 4 3 4-3 4 3v12"/><path d="M4 13h16"/><path d="M10 21v-5h4v5"/><path d="M8 6V3"/><path d="M16 6V3"/></svg>`,
+      nav_barracks: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M9.5 17.5 21 6V3h-3L6.5 14.5"/><path d="M11 19l-6-6"/><path d="M8 16l-4 4"/></svg>`,
+      nav_market: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="12" y1="3" x2="12" y2="20"/><line x1="7" y1="20" x2="17" y2="20"/><line x1="4" y1="7" x2="20" y2="7"/><path d="M4 7 2 13h4L4 7Z"/><path d="M20 7l-2 6h4l-2-6Z"/></svg>`,
+      nav_alliance: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 7v10"/><path d="M8 11h8"/></svg>`,
+      nav_map: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>`,
+      nav_reports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M8 3h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7"/><path d="M8 3v4H4"/><line x1="9" y1="11" x2="16" y2="11"/><line x1="9" y1="15" x2="14" y2="15"/></svg>`,
+
+      // Mapa & Ações
+      map_village: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 21V8l4-3 5 3 5-3 4 3v13"/><path d="M9 21v-6h6v6"/><path d="M12 8V3"/></svg>`,
+      map_barbarian: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 20 12 4l8 16H4Z"/><path d="M9 20l3-6 3 6"/><line x1="10" y1="4" x2="14" y2="4"/></svg>`,
+      map_oasis: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 18V9"/><path d="M12 9c-3-2-6-1-7 1"/><path d="M12 9c3-2 6-1 7 1"/><path d="M12 9c-2-3-5-4-7-3"/><path d="M12 9c2-3 5-4 7-3"/><ellipse cx="12" cy="19" rx="7" ry="2"/></svg>`,
+      map_valley: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 18 9 9l4 5 3-3 5 7H3Z"/><circle cx="17" cy="6" r="2"/></svg>`,
+
+      // Controles e Status
+      cloud: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+      sync: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>`,
+      alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+      sound_on: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`,
+      sound_off: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`,
+      save: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
+      peace: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>`,
+      locate: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>`,
+      caravan: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="7" width="13" height="9" rx="1"/><path d="M16 11h4l2 3v2h-6"/><circle cx="7.5" cy="18" r="2"/><circle cx="18.5" cy="18" r="2"/></svg>`,
+      swap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+      upload: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+      download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+      check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>`,
+      cross: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      arrow_up: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="18 15 12 9 6 15"/></svg>`,
+      arrow_down: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="6 9 12 15 18 9"/></svg>`,
+      arrow_left: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="15 18 9 12 15 6"/></svg>`,
+      arrow_right: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="9 18 15 12 9 6"/></svg>`,
+    };
+
+    function svgIcon(name, cls = 'w-4 h-4') {
+      const raw = SVG_ICONS[name] || SVG_ICONS.nav_center;
+      return `<span class="inline-flex items-center justify-center shrink-0 ${cls}">${raw}</span>`;
+    }
+
+    // ========================================================================
+    // TRAVIAN IDLE V1.4.4 — ÍCONES VETORIAIS SVG + MERCADOR 200:150 + QUARTEL
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
@@ -56,6 +116,7 @@
         wood: {
           label: 'Madeira',
           fieldName: 'Bosque',
+          iconName: 'wood',
           baseCost: { wood: 40, clay: 100, iron: 50, crop: 60 },
           baseTime: 15,
           costMult: 1.65,
@@ -69,6 +130,7 @@
         clay: {
           label: 'Barro',
           fieldName: 'Poço de Barro',
+          iconName: 'clay',
           baseCost: { wood: 80, clay: 40, iron: 80, crop: 50 },
           baseTime: 15,
           costMult: 1.65,
@@ -82,6 +144,7 @@
         iron: {
           label: 'Ferro',
           fieldName: 'Mina de Ferro',
+          iconName: 'iron',
           baseCost: { wood: 100, clay: 80, iron: 30, crop: 60 },
           baseTime: 18,
           costMult: 1.65,
@@ -95,6 +158,7 @@
         crop: {
           label: 'Cereal',
           fieldName: 'Campo de Cereal',
+          iconName: 'crop',
           baseCost: { wood: 70, clay: 90, iron: 70, crop: 20 },
           baseTime: 12,
           costMult: 1.65,
@@ -209,12 +273,12 @@
       ];
 
       // ======================================================================
-      // UNIDADES MILITARES COM ÍCONES EXCLUSIVOS
+      // UNIDADES MILITARES COM ÍCONES VETORIAIS SVG
       // ======================================================================
       const UNIT_CONFIG = {
         legionnaire: {
           name: 'Infantaria Leve',
-          icon: '🗡️',
+          iconName: 'legionnaire',
           badgeBg: 'bg-red-100 border-red-300 text-red-900',
           role: 'Ataque & Saque',
           reqBuilding: 'barracks',
@@ -229,7 +293,7 @@
         },
         spearman: {
           name: 'Lanceiro',
-          icon: '🛡️',
+          iconName: 'spearman',
           badgeBg: 'bg-sky-100 border-sky-300 text-sky-900',
           role: 'Defesa Pesada',
           reqBuilding: 'barracks',
@@ -244,7 +308,7 @@
         },
         praetorian: {
           name: 'Guarda Pretoriana',
-          icon: '🪖',
+          iconName: 'praetorian',
           badgeBg: 'bg-amber-100 border-amber-300 text-amber-900',
           role: 'Elite de Vanguarda',
           reqBuilding: 'barracks',
@@ -259,7 +323,7 @@
         },
         equites: {
           name: 'Cavalaria Rápida',
-          icon: '🐎',
+          iconName: 'equites',
           badgeBg: 'bg-orange-100 border-orange-300 text-orange-900',
           role: 'Assalto Veloz',
           reqBuilding: 'barracks',
@@ -274,7 +338,7 @@
         },
         scout: {
           name: 'Espião',
-          icon: '🕵️',
+          iconName: 'scout',
           badgeBg: 'bg-emerald-100 border-emerald-300 text-emerald-900',
           role: 'Reconhecimento',
           reqBuilding: 'barracks',
@@ -289,7 +353,7 @@
         },
         catapult: {
           name: 'Catapulta de Cerco',
-          icon: '☄️',
+          iconName: 'catapult',
           badgeBg: 'bg-stone-200 border-stone-400 text-stone-900',
           role: 'Artilharia Pesada',
           reqBuilding: 'barracks',
@@ -304,7 +368,7 @@
         },
         settler: {
           name: 'Colonizador',
-          icon: '🚩',
+          iconName: 'settler',
           badgeBg: 'bg-purple-100 border-purple-300 text-purple-900',
           role: 'Fundar Aldeia (3x)',
           reqBuilding: 'residence',
@@ -887,7 +951,7 @@
         const alliance = prev.alliance ? { ...prev.alliance, members: [...(prev.alliance.members || [])] } : null;
         let event = null;
 
-        // 1. Treinamento de tropas (suporta lotes de 1 ou vários soldados)
+        // 1. Treinamento de tropas
         for (const v of villages) {
           const nextTrn = [];
           for (const item of v.training) {
@@ -900,7 +964,7 @@
                 const uCfg = UNIT_CONFIG[item.unitType];
                 event = {
                   sound: 'build',
-                  toast: `${uCfg.icon} Treino concluído: +${item.count} ${uCfg.name}!`,
+                  toast: `Treino concluído: +${item.count} ${uCfg.name}!`,
                 };
               }
             }
@@ -1460,14 +1524,14 @@
         );
 
         const cloudBadge = !isSupabaseConfigured
-          ? `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-amber-950/70 hover:bg-amber-900 border border-amber-500/50 text-amber-200 text-xs font-bold cursor-pointer">☁️ Configurar Nuvem</button>`
+          ? `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-amber-950/70 hover:bg-amber-900 border border-amber-500/50 text-amber-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">${svgIcon('cloud', 'w-3.5 h-3.5')}<span>Configurar Nuvem</span></button>`
           : cloud.user
-          ? `<button id="btnCloudMenu" class="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
-               <span>${cloud.status === 'syncing' ? '🔄' : cloud.status === 'error' ? '⚠️' : '☁️'}</span>
+          ? `<button id="btnCloudMenu" class="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
+               ${svgIcon(cloud.status === 'syncing' ? 'sync' : cloud.status === 'error' ? 'alert' : 'cloud', 'w-3.5 h-3.5')}
                <span class="max-w-[110px] truncate">${cloud.user.email || 'Conectado'}</span>
              </button>`
-          : `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer">
-               <span>☁️</span>
+          : `<button id="btnCloudLogin" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow cursor-pointer">
+               ${svgIcon('cloud', 'w-3.5 h-3.5')}
                <span>Entrar / Nuvem</span>
              </button>`;
 
@@ -1476,7 +1540,7 @@
             <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.3</span>
+                  <span class="px-2 py-0.5 rounded bg-amber-600/20 border border-amber-500/50 text-amber-300 text-[11px] font-extrabold">V1.4.4</span>
                   ${
                     state.alliance
                       ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200 text-[11px] font-extrabold">[${state.alliance.tag}] Nv.${state.alliance.level}</span>`
@@ -1494,18 +1558,19 @@
                   <span class="hidden md:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-stone-800 border border-stone-700 text-amber-300">Seed: ${state.worldSeed}</span>
                   ${
                     isPeace
-                      ? `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200">🕊️ Paz: ${peaceDays}d ${peaceHours}h</span>`
+                      ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950 border border-sky-500/60 text-sky-200">${svgIcon('peace', 'w-3 h-3')}<span>Paz: ${peaceDays}d ${peaceHours}h</span></span>`
                       : ''
                   }
                 </div>
 
                 <div class="flex items-center gap-1.5">
                   ${cloudBadge}
-                  <button id="btnSound" class="px-2 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-xs font-bold cursor-pointer">
-                    ${state.soundEnabled ? '🔊' : '🔇'}
+                  <button id="btnSound" class="px-2 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-stone-200 text-xs font-bold inline-flex items-center justify-center cursor-pointer" title="Som">
+                    ${svgIcon(state.soundEnabled ? 'sound_on' : 'sound_off', 'w-4 h-4')}
                   </button>
-                  <button id="btnSave" class="px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-amber-200 text-xs font-bold cursor-pointer">
-                    💾 Save
+                  <button id="btnSave" class="px-2.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-amber-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">
+                    ${svgIcon('save', 'w-3.5 h-3.5')}
+                    <span>Save</span>
                   </button>
                 </div>
               </div>
@@ -1513,7 +1578,7 @@
               ${
                 incAtk
                   ? `<div class="px-3 py-2 rounded-xl bg-red-950 border border-red-500 text-red-100 flex items-center justify-between gap-2 text-xs font-bold animate-pulse">
-                      <span>⚠️ INVASÃO: ${incAtk.attacker} (Força ~${incAtk.atkPower})</span>
+                      <span class="inline-flex items-center gap-1.5">${svgIcon('alert', 'w-4 h-4 text-red-400')}<span>INVASÃO: ${incAtk.attacker} (Força ~${incAtk.atkPower})</span></span>
                       <span class="font-mono bg-red-800 px-2 py-0.5 rounded">Impacto: ${fmtTime(Math.max(0, Math.ceil((incAtk.impactsAt - now) / 1000)))}</span>
                     </div>`
                   : ''
@@ -1530,7 +1595,7 @@
                     return `
                       <div class="rounded-lg p-2 bg-stone-800/90 border border-stone-700">
                         <div class="flex items-center justify-between text-xs mb-1">
-                          <span class="font-semibold ${cfg.light}">${cfg.label}</span>
+                          <span class="font-semibold inline-flex items-center gap-1.5 ${cfg.light}">${svgIcon(cfg.iconName, 'w-3.5 h-3.5')}<span>${cfg.label}</span></span>
                           <span class="text-[11px] font-bold ${p >= 0 ? 'text-emerald-400' : 'text-red-400'}">${p >= 0 ? '+' : ''}${fmtNum(p)}/h</span>
                         </div>
                         <div class="flex items-baseline justify-between text-xs mb-1">
@@ -1565,20 +1630,20 @@
           <nav class="fixed bottom-0 inset-x-0 z-30 bg-stone-900 text-stone-300 border-t border-stone-700 shadow-2xl">
             <div class="max-w-4xl mx-auto grid grid-cols-7 h-16">
               ${[
-                { id: 'fields', label: 'Campos', icon: '🌾' },
-                { id: 'center', label: 'Aldeia', icon: '🏛️', badge: v.queue.length > 0 ? `${v.queue.length}/2` : '' },
-                { id: 'barracks', label: 'Quartel', icon: '⚔️', badge: activeTrainingUnits > 0 ? `${activeTrainingUnits}` : state.marches.length > 0 ? `${state.marches.length}` : '' },
-                { id: 'market', label: 'Mercado', icon: '⚖️', badge: (state.tradeCaravans || []).length > 0 ? `${state.tradeCaravans.length}` : '' },
-                { id: 'alliance', label: 'Aliança', icon: '🛡️', badge: state.alliance ? `Nv.${state.alliance.level}` : '' },
-                { id: 'map', label: 'Mapa', icon: '🗺️', badge: v.oases.length > 0 ? `${v.oases.length}` : '' },
-                { id: 'reports', label: 'Relatórios', icon: '📜', badge: state.reports.length > 0 ? `${state.reports.length}` : '' },
+                { id: 'fields', label: 'Campos', icon: 'nav_fields' },
+                { id: 'center', label: 'Aldeia', icon: 'nav_center', badge: v.queue.length > 0 ? `${v.queue.length}/2` : '' },
+                { id: 'barracks', label: 'Quartel', icon: 'nav_barracks', badge: activeTrainingUnits > 0 ? `${activeTrainingUnits}` : state.marches.length > 0 ? `${state.marches.length}` : '' },
+                { id: 'market', label: 'Mercado', icon: 'nav_market', badge: (state.tradeCaravans || []).length > 0 ? `${state.tradeCaravans.length}` : '' },
+                { id: 'alliance', label: 'Aliança', icon: 'nav_alliance', badge: state.alliance ? `Nv.${state.alliance.level}` : '' },
+                { id: 'map', label: 'Mapa', icon: 'nav_map', badge: v.oases.length > 0 ? `${v.oases.length}` : '' },
+                { id: 'reports', label: 'Relatórios', icon: 'nav_reports', badge: state.reports.length > 0 ? `${state.reports.length}` : '' },
               ]
                 .map(
                   (t) => `
-                    <button data-tab="${t.id}" class="nav-btn relative flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-bold cursor-pointer ${
+                    <button data-tab="${t.id}" class="nav-btn relative flex flex-col items-center justify-center gap-1 text-[10px] sm:text-[11px] font-bold cursor-pointer ${
                       ui.tab === t.id ? 'text-amber-400 bg-stone-800 border-t-2 border-amber-400' : 'text-stone-400 hover:text-stone-200'
                     }">
-                      <span class="text-sm sm:text-base leading-none">${t.icon}</span>
+                      ${svgIcon(t.icon, 'w-4 h-4 sm:w-5 sm:h-5')}
                       <span class="truncate max-w-full px-0.5">${t.label}</span>
                       ${t.badge ? `<span class="absolute top-1 right-1 sm:right-2 px-1 py-0.2 rounded-full bg-amber-500 text-stone-950 text-[8px] font-black">${t.badge}</span>` : ''}
                     </button>
@@ -1653,12 +1718,12 @@
                 ${
                   !hasMarket
                     ? `<div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
-                        <div class="font-bold">⚖️ Construa o Mercado no Centro da Aldeia</div>
+                        <div class="font-bold inline-flex items-center gap-1.5">${svgIcon('nav_market', 'w-4 h-4')}<span>Construa o Mercado no Centro da Aldeia</span></div>
                         <p>Vá na aba <strong>Aldeia</strong>, selecione um terreno vazio e construa o <strong>Mercado</strong> (requer Edifício Principal Nv.3, Armazém Nv.1 e Celeiro Nv.1).</p>
                       </div>`
                     : otherVillages.length === 0
                     ? `<div class="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs space-y-1">
-                        <div class="font-bold">🚩 Você ainda possui apenas 1 aldeia</div>
+                        <div class="font-bold inline-flex items-center gap-1.5">${svgIcon('settler', 'w-4 h-4')}<span>Você ainda possui apenas 1 aldeia</span></div>
                         <p>Treine 3 Colonizadores na Residência (Nv.5) e funde uma Colônia no Mapa para enviar caravanas de recursos entre suas aldeias! Enquanto isso, você pode usar a <strong>Troca de Mercadores (200 por 150)</strong> abaixo.</p>
                       </div>`
                     : `<div class="p-4 rounded-xl bg-white border border-stone-200 space-y-3 text-xs">
@@ -1676,16 +1741,16 @@
 
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           ${[
-                            { key: 'wood', stateKey: 'tradeWood', label: '🌲 Madeira' },
-                            { key: 'clay', stateKey: 'tradeClay', label: '🧱 Barro' },
-                            { key: 'iron', stateKey: 'tradeIron', label: '⛏️ Ferro' },
-                            { key: 'crop', stateKey: 'tradeCrop', label: '🌾 Cereal' },
+                            { key: 'wood', stateKey: 'tradeWood', label: 'Madeira', icon: 'wood' },
+                            { key: 'clay', stateKey: 'tradeClay', label: 'Barro', icon: 'clay' },
+                            { key: 'iron', stateKey: 'tradeIron', label: 'Ferro', icon: 'iron' },
+                            { key: 'crop', stateKey: 'tradeCrop', label: 'Cereal', icon: 'crop' },
                           ]
                             .map(
                               (item) => `
                               <div class="p-2 rounded-lg bg-stone-50 border border-stone-200 space-y-1">
                                 <div class="flex items-center justify-between">
-                                  <span class="font-bold text-[11px]">${item.label}</span>
+                                  <span class="font-bold text-[11px] inline-flex items-center gap-1">${svgIcon(item.icon, 'w-3 h-3')}<span>${item.label}</span></span>
                                   <button data-fillres="${item.stateKey}" class="btn-fill-res text-[10px] font-bold text-amber-700 hover:underline cursor-pointer">Máx</button>
                                 </div>
                                 <input data-tradeinput="${item.stateKey}" type="number" min="0" max="${cap.merchantCap}" value="${ui[item.stateKey]}" class="trade-input w-full px-2 py-1 rounded border border-stone-300 font-mono text-xs bg-white" />
@@ -1700,8 +1765,9 @@
                           </span>
                           <div class="flex gap-2">
                             <button id="btnClearTrade" class="px-3 py-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold cursor-pointer">Limpar</button>
-                            <button id="btnSendCaravan" ${canSendCargo ? '' : 'disabled'} class="px-4 py-2 rounded-lg font-bold cursor-pointer ${canSendCargo ? 'bg-cyan-700 hover:bg-cyan-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                              🚚 Enviar Caravana
+                            <button id="btnSendCaravan" ${canSendCargo ? '' : 'disabled'} class="px-4 py-2 rounded-lg font-bold inline-flex items-center gap-1.5 cursor-pointer ${canSendCargo ? 'bg-cyan-700 hover:bg-cyan-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                              ${svgIcon('caravan', 'w-4 h-4')}
+                              <span>Enviar Caravana</span>
                             </button>
                           </div>
                         </div>
@@ -1727,8 +1793,9 @@
                     </select>
                     <input id="swapAmountInput" type="number" min="4" step="20" max="${Math.max(4, cap.merchantCap)}" value="${swapAmt}" class="px-2.5 py-2 rounded-lg border border-stone-300 font-mono font-bold" />
                   </div>
-                  <button id="btnExecuteSwap" ${canSwap ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canSwap ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                    🔄 Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${fmtNum(swapReceived)} ${FIELD_CONFIG[ui.swapTo].label}
+                  <button id="btnExecuteSwap" ${canSwap ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer ${canSwap ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                    ${svgIcon('swap', 'w-4 h-4')}
+                    <span>Trocar ${fmtNum(swapAmt)} ${FIELD_CONFIG[ui.swapFrom].label} por ${fmtNum(swapReceived)} ${FIELD_CONFIG[ui.swapTo].label}</span>
                   </button>
                 </div>
               </div>
@@ -1743,7 +1810,7 @@
                           const rem = Math.max(0, Math.ceil((c.arrivesAt - now) / 1000));
                           return `<div class="p-3 rounded-xl bg-cyan-50/70 border border-cyan-200 text-xs space-y-1">
                             <div class="flex justify-between font-bold text-cyan-950">
-                              <span>🚚 ${c.fromName} → ${c.toName}</span>
+                              <span class="inline-flex items-center gap-1.5">${svgIcon('caravan', 'w-3.5 h-3.5')}<span>${c.fromName} → ${c.toName}</span></span>
                               <span class="font-mono">${fmtTime(rem)}</span>
                             </div>
                             <div class="text-stone-600">Carga: ${fmtNum(c.cargo.wood)} Mad • ${fmtNum(c.cargo.clay)} Bar • ${fmtNum(c.cargo.iron)} Fer • ${fmtNum(c.cargo.crop)} Cer</div>
@@ -1780,7 +1847,7 @@
                 ${
                   !hasEmbassy && !al
                     ? `<div class="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs space-y-1">
-                        <div class="font-bold">🏛️ Construa a Embaixada para Fundar uma Aliança</div>
+                        <div class="font-bold inline-flex items-center gap-1.5">${svgIcon('nav_alliance', 'w-4 h-4')}<span>Construa a Embaixada para Fundar uma Aliança</span></div>
                         <p>Vá na aba <strong>Aldeia</strong> e construa a <strong>Embaixada</strong> (requer Edifício Principal Nv.2).</p>
                       </div>`
                     : !al
@@ -1791,7 +1858,7 @@
                           <input id="allianceNameIn" type="text" maxlength="24" placeholder="Nome da Aliança" value="${ui.allianceNameDraft}" class="sm:col-span-2 px-3 py-2 rounded-lg border border-stone-300 font-semibold" />
                           <input id="allianceTagIn" type="text" maxlength="4" placeholder="TAG (ex: SPQR)" value="${ui.allianceTagDraft}" class="px-3 py-2 rounded-lg border border-stone-300 font-mono font-bold uppercase" />
                         </div>
-                        <button id="btnCreateAlliance" class="w-full py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-bold cursor-pointer">🛡️ Fundar Aliança</button>
+                        <button id="btnCreateAlliance" class="w-full py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer">${svgIcon('nav_alliance', 'w-4 h-4')}<span>Fundar Aliança</span></button>
                       </div>`
                     : `<div class="p-4 rounded-xl bg-gradient-to-br from-sky-900 to-indigo-950 text-white space-y-3">
                         <div class="flex items-center justify-between">
@@ -1835,8 +1902,9 @@
                             )
                             .join('')}
                         </div>
-                        <button id="btnDonateAlliance" ${canDonate ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canDonate ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                          🏛️ Doar ${fmtNum(donAmt)} Mad, Bar, Fer e Cer (+${fmtNum(donAmt * 4)} XP)
+                        <button id="btnDonateAlliance" ${canDonate ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer ${canDonate ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                          ${svgIcon('nav_center', 'w-4 h-4')}
+                          <span>Doar ${fmtNum(donAmt)} Mad, Bar, Fer e Cer (+${fmtNum(donAmt * 4)} XP)</span>
                         </button>
                       </div>`
                 }
@@ -1895,30 +1963,30 @@
               const tile = pv ? { x: tx, y: ty, type: 'player_village' } : generateTile(state.worldSeed, tx, ty);
               const regenPct = tile.type === 'barbarian' ? Math.round(getRegen(state.barbarianStates, tx, ty, now) * 100) : 100;
               let cls = 'bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-950';
-              let icon = '🌿';
+              let iconName = 'map_valley';
               let sub = 'Vale';
               if (tile.type === 'player_village') {
                 cls = 'bg-gradient-to-br from-amber-500 to-amber-700 border-amber-300 text-white ring-2 ring-amber-400';
-                icon = '🏰';
+                iconName = 'map_village';
                 sub = 'Aldeia';
               } else if (tile.type === 'barbarian') {
                 cls = 'bg-gradient-to-br from-red-700 to-red-950 border-red-500 text-red-50';
-                icon = '⚔️';
+                iconName = 'map_barbarian';
                 sub = `Nv.${tile.barbarian.level} (${regenPct}%)`;
               } else if (tile.type === 'oasis') {
                 cls = 'bg-gradient-to-br from-teal-600 to-cyan-900 border-teal-400 text-teal-50';
-                icon = '✨';
+                iconName = 'map_oasis';
                 sub = `+${tile.oasis.percent}%`;
               } else if (tile.valley && tile.valley.rare) {
                 cls = 'bg-gradient-to-br from-lime-200 to-amber-200 border-amber-500 text-stone-900';
-                icon = '🌾';
+                iconName = 'crop';
                 sub = tile.valley.label;
               }
 
               gridHtml += `
                 <button data-tile="${tx},${ty}" class="map-tile rounded-lg border p-1 flex flex-col items-center justify-between text-center transition-transform hover:scale-105 cursor-pointer ${cls}">
                   <span class="text-[8px] font-mono opacity-80 leading-none">${tx}|${ty}</span>
-                  <span class="text-sm sm:text-base leading-none">${icon}</span>
+                  ${svgIcon(iconName, 'w-4 h-4 sm:w-5 sm:h-5')}
                   <span class="text-[7px] sm:text-[8px] font-extrabold leading-none truncate w-full">${sub}</span>
                 </button>
               `;
@@ -1937,20 +2005,20 @@
                     <p class="text-xs text-stone-500">Sua aldeia em (${v.x}|${v.y}) • Janela local 7×7</p>
                   </div>
                   <div class="flex items-center gap-1">
-                    <button id="mapHome" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold cursor-pointer">📍 Minha Aldeia</button>
+                    <button id="mapHome" class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer">${svgIcon('locate', 'w-3.5 h-3.5')}<span>Minha Aldeia</span></button>
                   </div>
                 </div>
 
                 <div class="flex flex-col items-center gap-2">
-                  <button data-move="0,1" class="map-move w-full max-w-md py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">▲ Norte (+Y)</button>
+                  <button data-move="0,1" class="map-move w-full max-w-md py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold inline-flex items-center justify-center gap-1 cursor-pointer">${svgIcon('arrow_up', 'w-3.5 h-3.5')}<span>Norte (+Y)</span></button>
                   <div class="flex items-center gap-1.5 w-full justify-center">
-                    <button data-move="-1,0" class="map-move p-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">◀</button>
+                    <button data-move="-1,0" class="map-move p-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">${svgIcon('arrow_left', 'w-4 h-4')}</button>
                     <div class="grid grid-cols-7 gap-1 sm:gap-1.5 w-full max-w-md aspect-square bg-emerald-950/15 p-1.5 rounded-xl border border-stone-300">
                       ${gridHtml}
                     </div>
-                    <button data-move="1,0" class="map-move p-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">▶</button>
+                    <button data-move="1,0" class="map-move p-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">${svgIcon('arrow_right', 'w-4 h-4')}</button>
                   </div>
-                  <button data-move="0,-1" class="map-move w-full max-w-md py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold cursor-pointer">▼ Sul (-Y)</button>
+                  <button data-move="0,-1" class="map-move w-full max-w-md py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-xs font-bold inline-flex items-center justify-center gap-1 cursor-pointer">${svgIcon('arrow_down', 'w-3.5 h-3.5')}<span>Sul (-Y)</span></button>
                 </div>
               </div>
 
@@ -1978,10 +2046,10 @@
                 <div class="bg-white rounded-xl border border-stone-300 p-4 shadow-sm space-y-2 text-xs">
                   <h3 class="font-bold text-sm text-stone-800">Legenda</h3>
                   <div class="grid grid-cols-2 gap-2">
-                    <div class="p-2 rounded-lg bg-amber-50 border border-amber-200">🏰 Suas Aldeias (${state.villages.length})</div>
-                    <div class="p-2 rounded-lg bg-red-50 border border-red-200">⚔️ Bárbaros (IA)</div>
-                    <div class="p-2 rounded-lg bg-teal-50 border border-teal-200">✨ Oásis (+25%/+50%)</div>
-                    <div class="p-2 rounded-lg bg-lime-50 border border-lime-300">🌾 Vales / 9-15 Cereais</div>
+                    <div class="p-2 rounded-lg bg-amber-50 border border-amber-200 inline-flex items-center gap-1.5">${svgIcon('map_village', 'w-4 h-4 text-amber-800')}<span>Suas Aldeias (${state.villages.length})</span></div>
+                    <div class="p-2 rounded-lg bg-red-50 border border-red-200 inline-flex items-center gap-1.5">${svgIcon('map_barbarian', 'w-4 h-4 text-red-800')}<span>Bárbaros (IA)</span></div>
+                    <div class="p-2 rounded-lg bg-teal-50 border border-teal-200 inline-flex items-center gap-1.5">${svgIcon('map_oasis', 'w-4 h-4 text-teal-800')}<span>Oásis (+25%/+50%)</span></div>
+                    <div class="p-2 rounded-lg bg-lime-50 border border-lime-300 inline-flex items-center gap-1.5">${svgIcon('crop', 'w-4 h-4 text-amber-700')}<span>Vales / 9-15 Cereais</span></div>
                   </div>
                 </div>
               </div>
@@ -1990,7 +2058,7 @@
         }
 
         // ====================================================================
-        // ABA QUARTEL & TROPAS (COM ÍCONES, TEMPORIZADOR E RECRUTAMENTO EM LOTE)
+        // ABA QUARTEL & TROPAS (COM ÍCONES SVG, TEMPORIZADOR E LOTE)
         // ====================================================================
         if (ui.tab === 'barracks') {
           const resLvl = cap.resLvl;
@@ -2007,14 +2075,14 @@
                   </div>
                 </div>
 
-                <!-- Guarnição atual com ícones -->
+                <!-- Guarnição atual com ícones SVG -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   ${UNIT_ORDER.map((u) => {
                     const uc = UNIT_CONFIG[u];
                     return `
                       <div class="p-2.5 rounded-xl bg-white border border-stone-200 flex items-center gap-2.5">
-                        <div class="w-9 h-9 rounded-lg border flex items-center justify-center text-lg shrink-0 ${uc.badgeBg}">
-                          ${uc.icon}
+                        <div class="w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${uc.badgeBg}">
+                          ${svgIcon(uc.iconName, 'w-5 h-5')}
                         </div>
                         <div class="min-w-0">
                           <div class="text-[11px] text-stone-500 truncate">${uc.name}</div>
@@ -2025,7 +2093,7 @@
                   }).join('')}
                 </div>
 
-                <!-- Lista de recrutamento com ícones e seletor de quantidade -->
+                <!-- Lista de recrutamento com ícones SVG e seletor de quantidade -->
                 <div class="space-y-3">
                   ${UNIT_ORDER.map((u) => {
                     const c = UNIT_CONFIG[u];
@@ -2046,8 +2114,8 @@
                       <div class="p-3.5 rounded-xl bg-white border border-stone-200 space-y-2.5 shadow-xs">
                         <div class="flex items-start justify-between gap-3">
                           <div class="flex items-start gap-3 min-w-0">
-                            <div class="w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl shrink-0 shadow-xs ${c.badgeBg}">
-                              ${c.icon}
+                            <div class="w-12 h-12 rounded-xl border-2 flex items-center justify-center shrink-0 shadow-xs ${c.badgeBg}">
+                              ${svgIcon(c.iconName, 'w-6 h-6')}
                             </div>
                             <div class="min-w-0">
                               <div class="font-bold text-sm text-stone-900 flex flex-wrap items-center gap-1.5">
@@ -2078,8 +2146,8 @@
                                   </button>
                                 </div>
 
-                                <button data-train="${u}" ${ok ? '' : 'disabled'} class="btn-train px-4 py-2 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                                  <span>${c.icon}</span>
+                                <button data-train="${u}" ${ok ? '' : 'disabled'} class="btn-train px-4 py-2 rounded-lg text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                                  ${svgIcon(c.iconName, 'w-4 h-4')}
                                   <span>Treinar ${qty}x (${fmtTime(totalSec)})</span>
                                 </button>
                               </div>`
@@ -2122,7 +2190,7 @@
                               <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2 text-xs">
                                 <div class="flex items-center justify-between gap-2">
                                   <div class="flex items-center gap-2 min-w-0">
-                                    <span class="w-8 h-8 rounded-lg border flex items-center justify-center text-base shrink-0 ${uc.badgeBg}">${uc.icon}</span>
+                                    <span class="w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${uc.badgeBg}">${svgIcon(uc.iconName, 'w-4 h-4')}</span>
                                     <div class="min-w-0">
                                       <div class="font-bold text-stone-900 truncate">${remainingUnits}x ${uc.name}</div>
                                       <div class="text-[11px] text-stone-500">Concluídos: ${doneUnits}/${totalUnits}</div>
@@ -2239,7 +2307,7 @@
                            return `<div class="p-3 rounded-xl border border-stone-200 bg-stone-50 space-y-1.5">
                              <div class="flex justify-between items-center"><strong class="text-xs text-stone-900">${c.name}</strong><span class="text-[11px] text-amber-800 font-semibold">${c.tagline}</span></div>
                              <div class="text-[11px] text-stone-600">${cost.wood} Mad • ${cost.clay} Bar • ${cost.iron} Fer • ${cost.crop} Cer</div>
-                             ${av.reqStatus.map((rq) => `<div class="text-[11px] font-semibold ${rq.ok ? 'text-emerald-700' : 'text-red-700'}">${rq.ok ? '✓' : '✗'} ${rq.label}</div>`).join('')}
+                             ${av.reqStatus.map((rq) => `<div class="text-[11px] font-semibold inline-flex items-center gap-1 mr-2 ${rq.ok ? 'text-emerald-700' : 'text-red-700'}">${svgIcon(rq.ok ? 'check' : 'cross', 'w-3 h-3')}<span>${rq.label}</span></div>`).join('')}
                              <button data-build="${bt}" ${ok ? '' : 'disabled'} class="btn-build w-full py-1.5 rounded-lg text-xs font-bold cursor-pointer ${ok ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">${av.canBuild ? 'Construir' : av.reason}</button>
                            </div>`;
                          }).join('')}
@@ -2269,8 +2337,8 @@
                   <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900">Máx Nv.10</span>
                 </div>
                 <div class="relative w-full max-w-md mx-auto aspect-square rounded-full bg-gradient-to-b from-lime-800/20 via-emerald-800/15 to-amber-900/20 border-4 border-stone-300 my-2">
-                  <button id="goCenterCircle" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-stone-800 hover:bg-stone-700 border-4 border-amber-500 text-amber-100 flex flex-col items-center justify-center text-[10px] font-bold shadow-lg cursor-pointer">
-                    <span>🏛️</span>
+                  <button id="goCenterCircle" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-stone-800 hover:bg-stone-700 border-4 border-amber-500 text-amber-100 flex flex-col items-center justify-center gap-1 text-[10px] font-bold shadow-lg cursor-pointer">
+                    ${svgIcon('nav_center', 'w-5 h-5 text-amber-400')}
                     <span>Centro</span>
                   </button>
                   ${FIELD_POSITIONS.map((pos) => {
@@ -2302,7 +2370,15 @@
 
             <div class="lg:col-span-5 bg-white rounded-2xl border border-stone-300 overflow-hidden shadow-sm">
               <div class="p-4 bg-gradient-to-r ${fCfg.tile} text-white flex items-center justify-between">
-                <div><span class="text-xs uppercase opacity-80">Campo #${f.id}</span><h3 class="text-lg font-bold">${fCfg.fieldName}</h3></div>
+                <div class="flex items-center gap-2.5">
+                  <div class="w-10 h-10 rounded-xl bg-black/25 flex items-center justify-center">
+                    ${svgIcon(fCfg.iconName, 'w-5 h-5 text-white')}
+                  </div>
+                  <div>
+                    <span class="text-xs uppercase opacity-80">Campo #${f.id}</span>
+                    <h3 class="text-lg font-bold">${fCfg.fieldName}</h3>
+                  </div>
+                </div>
                 <div class="text-2xl font-black">Nv.${f.level}</div>
               </div>
               <div class="p-4 space-y-3">
@@ -2345,7 +2421,7 @@
             <div class="bg-white rounded-2xl max-w-md w-full border border-stone-300 shadow-2xl overflow-hidden">
               <div class="px-5 py-3.5 bg-stone-900 text-white flex items-center justify-between">
                 <div><span class="font-mono text-xs text-amber-300">(${t.x} | ${t.y}) • ${dist} campos</span><h3 class="font-bold text-base">${t.type === 'player_village' ? v.name : t.type === 'barbarian' ? t.barbarian.name : t.type === 'oasis' ? `Oásis (${t.oasis.label})` : `Vale Abandonado (${t.valley.label})`}</h3></div>
-                <button id="closeTileModal" class="text-stone-400 hover:text-white text-lg font-bold cursor-pointer">✕</button>
+                <button id="closeTileModal" class="text-stone-400 hover:text-white cursor-pointer">${svgIcon('cross', 'w-5 h-5')}</button>
               </div>
               <div class="p-5 space-y-3 text-xs">
                 ${t.type === 'barbarian' ? `<p class="text-stone-700">Recuperação atual: <strong>${Math.round(getRegen(state.barbarianStates, t.x, t.y, now) * 100)}%</strong> • Saque estimado: ~${t.barbarian.loot.wood} Mad, ~${t.barbarian.loot.clay} Bar, ~${t.barbarian.loot.iron} Fer, ~${t.barbarian.loot.crop} Cer.</p>` : ''}
@@ -2357,30 +2433,31 @@
                           <strong>Terreno Neutro:</strong> Vales abandonados não são bloqueados pelo período de paz e podem ser colonizados para formar uma nova aldeia com estes 18 campos:
                         </div>
                         <div class="grid grid-cols-4 gap-1.5 text-center font-bold">
-                          <div class="p-2 rounded-lg bg-emerald-100 text-emerald-900">🌲 ${t.valley.wood} Mad</div>
-                          <div class="p-2 rounded-lg bg-orange-100 text-orange-900">🧱 ${t.valley.clay} Bar</div>
-                          <div class="p-2 rounded-lg bg-slate-200 text-slate-900">⛏️ ${t.valley.iron} Fer</div>
-                          <div class="p-2 rounded-lg bg-amber-100 text-amber-900">🌾 ${t.valley.crop} Cer</div>
+                          <div class="p-2 rounded-lg bg-emerald-100 text-emerald-900 inline-flex items-center justify-center gap-1">${svgIcon('wood', 'w-3.5 h-3.5')}<span>${t.valley.wood} Mad</span></div>
+                          <div class="p-2 rounded-lg bg-orange-100 text-orange-900 inline-flex items-center justify-center gap-1">${svgIcon('clay', 'w-3.5 h-3.5')}<span>${t.valley.clay} Bar</span></div>
+                          <div class="p-2 rounded-lg bg-slate-200 text-slate-900 inline-flex items-center justify-center gap-1">${svgIcon('iron', 'w-3.5 h-3.5')}<span>${t.valley.iron} Fer</span></div>
+                          <div class="p-2 rounded-lg bg-amber-100 text-amber-900 inline-flex items-center justify-center gap-1">${svgIcon('crop', 'w-3.5 h-3.5')}<span>${t.valley.crop} Cer</span></div>
                         </div>
                         <div class="p-3 rounded-xl bg-stone-50 border border-stone-200 space-y-1">
                           <div class="font-bold text-stone-800">Requisitos para Fundar Nova Aldeia:</div>
-                          <div class="${hasRes ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${hasRes ? '✓' : '✗'} Residência Nv. 5+ (Atual: Nv.${resLvl})</div>
-                          <div class="${hasSettlers ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${hasSettlers ? '✓' : '✗'} 3 Colonizadores treinados no Quartel (Atual: ${v.troops.settler}/3)</div>
+                          <div class="inline-flex items-center gap-1.5 ${hasRes ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${svgIcon(hasRes ? 'check' : 'cross', 'w-3.5 h-3.5')}<span>Residência Nv. 5+ (Atual: Nv.${resLvl})</span></div>
+                          <div class="inline-flex items-center gap-1.5 ${hasSettlers ? 'text-emerald-700 font-semibold' : 'text-red-700 font-semibold'}">${svgIcon(hasSettlers ? 'check' : 'cross', 'w-3.5 h-3.5')}<span>3 Colonizadores treinados no Quartel (Atual: ${v.troops.settler}/3)</span></div>
                         </div>
-                        <button id="btnSettleHere" ${canSettle ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold cursor-pointer ${canSettle ? 'bg-purple-700 hover:bg-purple-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
-                          ${canSettle ? '🚩 Enviar 3 Colonizadores e Fundar Aldeia' : 'Treine 3 Colonizadores para Fundar'}
+                        <button id="btnSettleHere" ${canSettle ? '' : 'disabled'} class="w-full py-2.5 rounded-xl font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer ${canSettle ? 'bg-purple-700 hover:bg-purple-600 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'}">
+                          ${svgIcon('settler', 'w-4 h-4')}
+                          <span>${canSettle ? 'Enviar 3 Colonizadores e Fundar Aldeia' : 'Treine 3 Colonizadores para Fundar'}</span>
                         </button>
                       </div>`
                     : ''
                 }
                 ${
                   isPeace && (t.type === 'barbarian' || t.type === 'oasis')
-                    ? `<div class="p-2.5 rounded-xl bg-sky-50 border border-sky-300 text-sky-900 font-semibold">🕊️ Período de paz de 21 dias ativo: ataques e conquistas estão bloqueados.</div>`
+                    ? `<div class="p-2.5 rounded-xl bg-sky-50 border border-sky-300 text-sky-900 font-semibold inline-flex items-center gap-1.5">${svgIcon('peace', 'w-4 h-4 shrink-0')}<span>Período de paz de 21 dias ativo: ataques e conquistas estão bloqueados.</span></div>`
                     : ''
                 }
                 ${
                   canAttack
-                    ? `<button id="btnAttackHere" class="w-full py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white font-bold cursor-pointer">⚔️ Enviar Tropas (${t.type === 'oasis' ? 'Conquistar Oásis' : 'Saquear'})</button>`
+                    ? `<button id="btnAttackHere" class="w-full py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer">${svgIcon('nav_barracks', 'w-4 h-4')}<span>Enviar Tropas (${t.type === 'oasis' ? 'Conquistar Oásis' : 'Saquear'})</span></button>`
                     : ''
                 }
               </div>
@@ -2396,26 +2473,26 @@
             <div class="bg-white rounded-2xl max-w-md w-full border border-stone-300 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
               <div class="px-5 py-3.5 bg-stone-900 text-white flex items-center justify-between">
                 <h3 class="font-bold text-base">Conta na Nuvem (Supabase) &amp; Save</h3>
-                <button id="closeSaveModal" class="text-stone-400 hover:text-white text-lg font-bold cursor-pointer">✕</button>
+                <button id="closeSaveModal" class="text-stone-400 hover:text-white cursor-pointer">${svgIcon('cross', 'w-5 h-5')}</button>
               </div>
               <div class="p-5 space-y-3.5 text-xs">
                 <div class="p-3.5 rounded-xl border ${cloud.user ? 'bg-emerald-50 border-emerald-200' : 'bg-stone-50 border-stone-200'} space-y-2.5">
                   ${
                     !isSupabaseConfigured
-                      ? `<div class="font-bold text-amber-900">⚠️ Falta apenas colar a Publishable Key</div>
+                      ? `<div class="font-bold text-amber-900 inline-flex items-center gap-1.5">${svgIcon('alert', 'w-4 h-4')}<span>Falta apenas colar a Publishable Key</span></div>
                          <p class="text-stone-600">Abra o <code>index.html</code> e cole sua chave <code>sb_publishable_...</code> na linha 26.</p>`
                       : cloud.user
                       ? `<div class="flex items-center justify-between">
                            <div>
-                             <div class="font-bold text-emerald-900">☁️ Conta Conectada</div>
+                             <div class="font-bold text-emerald-900 inline-flex items-center gap-1.5">${svgIcon('cloud', 'w-4 h-4')}<span>Conta Conectada</span></div>
                              <div class="text-emerald-700 font-semibold">${cloud.user.email}</div>
                              <div class="text-[11px] text-stone-500">Último sync: ${lastSyncStr}</div>
                            </div>
                            <button id="btnLogoutAccount" class="px-2.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 font-bold cursor-pointer">Sair</button>
                          </div>
                          <div class="grid grid-cols-2 gap-2">
-                           <button id="btnForceSync" class="py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold cursor-pointer">⬆️ Enviar p/ Nuvem</button>
-                           <button id="btnPullSync" class="py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white font-bold cursor-pointer">⬇️ Baixar da Nuvem</button>
+                           <button id="btnForceSync" class="py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer">${svgIcon('upload', 'w-3.5 h-3.5')}<span>Enviar p/ Nuvem</span></button>
+                           <button id="btnPullSync" class="py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer">${svgIcon('download', 'w-3.5 h-3.5')}<span>Baixar da Nuvem</span></button>
                          </div>`
                       : `<div class="font-bold text-stone-900 text-sm">Salvar progresso na nuvem (Grátis)</div>
                          <p class="text-stone-600">Entre com a mesma conta no PC e no celular para sincronizar sua aldeia automaticamente.</p>
@@ -2827,7 +2904,7 @@
             ui.trainQty[u] = 1;
             sfx.play(state.soundEnabled, 'build');
             saveNow();
-            setToast(`${cfg.icon} Treinando ${qty}x ${cfg.name}!`);
+            setToast(`Treinando ${qty}x ${cfg.name}!`);
           };
         });
 
