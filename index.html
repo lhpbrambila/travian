@@ -26,334 +26,17 @@
 
   <script>
     // ========================================================================
+    // CONFIGURAÇÃO DO SUPABASE (100% GRATUITO - REST NATIVO COMPATÍVEL MOBILE)
+    // ========================================================================
+    const SUPABASE_URL = 'https://eoydtyvtumsbnbgyyswx.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_iuh7jr1qlkVu-94enO-8Gg_0SUA85Ve';
+
+    // ========================================================================
     // TRAVIAN IDLE V1.4.5 — ÍCONES VETORIAIS SVG + NOTIFICAÇÕES 5S CORRIGIDAS
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
-      const SESSION_KEY = 'travian_idle_v1_3_sb_session';
-      const DEFAULT_SEED = 'TERRA-MEDIA-01';
-      const PEACE_PERIOD_MS = 21 * 24 * 60 * 60 * 1000;
-      const MAP_MIN = -75;
-      const MAP_MAX = 75;
-      const VIEWPORT_SIZE = 7;
-      const MAX_FIELD_LEVEL = 10;
-      const MAX_BUILDING_LEVEL = 10;
-      const MAX_QUEUE_SIZE = 2;
-      const BASE_STORAGE = 800;
-      const MERCHANT_EXCHANGE_RATE = 0.75; // Proporção 200 por 150 (75%)
-
-      const FIELD_PROD_TABLE = [5, 12, 22, 38, 62, 96, 145, 215, 310, 440, 620];
-      const STORAGE_BONUS_TABLE = [0, 1200, 2200, 3800, 6200, 9600, 14500, 21500, 31000, 44000, 62000];
-
-      const FIELD_CONFIG = {
-        wood: {
-          label: 'Madeira',
-          fieldName: 'Bosque',
-          iconName: 'wood',
-          baseCost: { wood: 40, clay: 100, iron: 50, crop: 60 },
-          baseTime: 15,
-          costMult: 1.65,
-          timeMult: 1.68,
-          badge: 'bg-emerald-950/80 text-emerald-200 border-emerald-700',
-          tile: 'from-emerald-700 to-emerald-900 border-emerald-400',
-          text: 'text-emerald-700',
-          light: 'text-emerald-400',
-          bar: 'bg-emerald-600',
-        },
-        clay: {
-          label: 'Barro',
-          fieldName: 'Poço de Barro',
-          iconName: 'clay',
-          baseCost: { wood: 80, clay: 40, iron: 80, crop: 50 },
-          baseTime: 15,
-          costMult: 1.65,
-          timeMult: 1.68,
-          badge: 'bg-orange-950/80 text-orange-200 border-orange-700',
-          tile: 'from-orange-700 to-amber-900 border-orange-400',
-          text: 'text-orange-700',
-          light: 'text-orange-400',
-          bar: 'bg-orange-600',
-        },
-        iron: {
-          label: 'Ferro',
-          fieldName: 'Mina de Ferro',
-          iconName: 'iron',
-          baseCost: { wood: 100, clay: 80, iron: 30, crop: 60 },
-          baseTime: 18,
-          costMult: 1.65,
-          timeMult: 1.68,
-          badge: 'bg-slate-800/90 text-slate-200 border-slate-600',
-          tile: 'from-slate-600 to-slate-800 border-slate-300',
-          text: 'text-slate-700',
-          light: 'text-slate-300',
-          bar: 'bg-slate-500',
-        },
-        crop: {
-          label: 'Cereal',
-          fieldName: 'Campo de Cereal',
-          iconName: 'crop',
-          baseCost: { wood: 70, clay: 90, iron: 70, crop: 20 },
-          baseTime: 12,
-          costMult: 1.65,
-          timeMult: 1.64,
-          badge: 'bg-amber-950/80 text-amber-200 border-amber-700',
-          tile: 'from-amber-500 to-yellow-700 border-amber-300',
-          text: 'text-amber-700',
-          light: 'text-amber-300',
-          bar: 'bg-amber-500',
-        },
-      };
-
-      const BUILDING_CONFIG = {
-        main_building: {
-          name: 'Edifício Principal',
-          tagline: 'Reduz tempo de construção',
-          desc: 'Sede administrativa da aldeia. Cada nível acima do 1 reduz em 4% o tempo de obras.',
-          baseCost: { wood: 70, clay: 40, iron: 60, crop: 20 },
-          baseTime: 20,
-          allowMultiple: false,
-          reqs: [],
-          grad: 'from-amber-700 to-stone-900 border-amber-400',
-        },
-        warehouse: {
-          name: 'Armazém',
-          tagline: 'Armazena Madeira, Barro e Ferro',
-          desc: 'Aumenta a capacidade máxima de estoque dos três recursos brutos.',
-          baseCost: { wood: 130, clay: 160, iron: 90, crop: 40 },
-          baseTime: 22,
-          allowMultiple: true,
-          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
-          grad: 'from-emerald-700 to-stone-900 border-emerald-400',
-        },
-        granary: {
-          name: 'Celeiro',
-          tagline: 'Armazena Cereal',
-          desc: 'Aumenta a capacidade máxima de armazenamento de cereal da aldeia.',
-          baseCost: { wood: 80, clay: 100, iron: 70, crop: 20 },
-          baseTime: 20,
-          allowMultiple: true,
-          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
-          grad: 'from-yellow-600 to-amber-900 border-yellow-300',
-        },
-        barracks: {
-          name: 'Quartel',
-          tagline: 'Treina tropas militares',
-          desc: 'Permite treinar Infantaria, Lanceiros, Pretorianos, Cavalaria, Espiões e Catapultas.',
-          baseCost: { wood: 210, clay: 140, iron: 260, crop: 120 },
-          baseTime: 32,
-          allowMultiple: false,
-          reqs: [
-            { b: 'main_building', lvl: 3, label: 'Edifício Principal Nv. 3' },
-            { f: 'crop', lvl: 2, label: 'Campo de Cereal Nv. 2' },
-          ],
-          grad: 'from-red-700 to-stone-900 border-red-400',
-        },
-        marketplace: {
-          name: 'Mercado',
-          tagline: 'Envia recursos entre aldeias',
-          desc: 'Libera caravanas de mercadores para transportar recursos entre suas aldeias e trocar excedentes (200:150).',
-          baseCost: { wood: 140, clay: 160, iron: 120, crop: 60 },
-          baseTime: 24,
-          allowMultiple: false,
-          reqs: [
-            { b: 'main_building', lvl: 3, label: 'Edifício Principal Nv. 3' },
-            { b: 'warehouse', lvl: 1, label: 'Armazém Nv. 1' },
-            { b: 'granary', lvl: 1, label: 'Celeiro Nv. 1' },
-          ],
-          grad: 'from-cyan-700 to-slate-900 border-cyan-400',
-        },
-        embassy: {
-          name: 'Embaixada',
-          tagline: 'Funda e evolui sua Aliança',
-          desc: 'Permite fundar sua Aliança, recrutar aliados e desbloquear bônus globais de produção e ataque.',
-          baseCost: { wood: 180, clay: 130, iron: 150, crop: 80 },
-          baseTime: 28,
-          allowMultiple: false,
-          reqs: [{ b: 'main_building', lvl: 2, label: 'Edifício Principal Nv. 2' }],
-          grad: 'from-sky-700 to-indigo-950 border-sky-400',
-        },
-        cranny: {
-          name: 'Esconderijo',
-          tagline: 'Protege recursos contra saques',
-          desc: 'Oculta recursos de cada tipo contra ataques inimigos.',
-          baseCost: { wood: 40, clay: 50, iron: 30, crop: 10 },
-          baseTime: 16,
-          allowMultiple: true,
-          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
-          grad: 'from-indigo-700 to-slate-900 border-indigo-400',
-        },
-        residence: {
-          name: 'Residência',
-          tagline: 'Libera Colonizadores (Nv.5 / Nv.10)',
-          desc: 'Permite recrutar Colonizadores para fundar novas aldeias pelo mundo.',
-          baseCost: { wood: 580, clay: 460, iron: 350, crop: 180 },
-          baseTime: 45,
-          allowMultiple: false,
-          reqs: [{ b: 'main_building', lvl: 5, label: 'Edifício Principal Nv. 5' }],
-          grad: 'from-purple-700 to-stone-900 border-purple-400',
-        },
-      };
-
-      const BUILDING_ORDER = [
-        'main_building',
-        'warehouse',
-        'granary',
-        'marketplace',
-        'embassy',
-        'barracks',
-        'cranny',
-        'residence',
-      ];
-
-      // ======================================================================
-      // UNIDADES MILITARES COM ÍCONES VETORIAIS SVG
-      // ======================================================================
-      const UNIT_CONFIG = {
-        legionnaire: {
-          name: 'Infantaria Leve',
-          iconName: 'legionnaire',
-          badgeBg: 'bg-red-100 border-red-300 text-red-900',
-          role: 'Ataque & Saque',
-          reqBuilding: 'barracks',
-          reqLvl: 1,
-          cost: { wood: 120, clay: 100, iron: 150, crop: 30 },
-          trainSec: 18,
-          atk: 45,
-          def: 30,
-          speed: 14,
-          carry: 60,
-          upkeep: 1,
-        },
-        spearman: {
-          name: 'Lanceiro',
-          iconName: 'spearman',
-          badgeBg: 'bg-sky-100 border-sky-300 text-sky-900',
-          role: 'Defesa Pesada',
-          reqBuilding: 'barracks',
-          reqLvl: 1,
-          cost: { wood: 100, clay: 130, iron: 55, crop: 30 },
-          trainSec: 16,
-          atk: 15,
-          def: 65,
-          speed: 12,
-          carry: 35,
-          upkeep: 1,
-        },
-        praetorian: {
-          name: 'Guarda Pretoriana',
-          iconName: 'praetorian',
-          badgeBg: 'bg-amber-100 border-amber-300 text-amber-900',
-          role: 'Elite de Vanguarda',
-          reqBuilding: 'barracks',
-          reqLvl: 3,
-          cost: { wood: 160, clay: 180, iron: 220, crop: 50 },
-          trainSec: 26,
-          atk: 65,
-          def: 85,
-          speed: 13,
-          carry: 55,
-          upkeep: 2,
-        },
-        equites: {
-          name: 'Cavalaria Rápida',
-          iconName: 'equites',
-          badgeBg: 'bg-orange-100 border-orange-300 text-orange-900',
-          role: 'Assalto Veloz',
-          reqBuilding: 'barracks',
-          reqLvl: 2,
-          cost: { wood: 320, clay: 280, iron: 360, crop: 100 },
-          trainSec: 36,
-          atk: 125,
-          def: 50,
-          speed: 28,
-          carry: 140,
-          upkeep: 3,
-        },
-        scout: {
-          name: 'Espião',
-          iconName: 'scout',
-          badgeBg: 'bg-emerald-100 border-emerald-300 text-emerald-900',
-          role: 'Reconhecimento',
-          reqBuilding: 'barracks',
-          reqLvl: 1,
-          cost: { wood: 90, clay: 80, iron: 40, crop: 20 },
-          trainSec: 12,
-          atk: 2,
-          def: 10,
-          speed: 38,
-          carry: 10,
-          upkeep: 1,
-        },
-        catapult: {
-          name: 'Catapulta de Cerco',
-          iconName: 'catapult',
-          badgeBg: 'bg-stone-200 border-stone-400 text-stone-900',
-          role: 'Artilharia Pesada',
-          reqBuilding: 'barracks',
-          reqLvl: 5,
-          cost: { wood: 620, clay: 540, iron: 580, crop: 160 },
-          trainSec: 55,
-          atk: 310,
-          def: 40,
-          speed: 8,
-          carry: 45,
-          upkeep: 4,
-        },
-        settler: {
-          name: 'Colonizador',
-          iconName: 'settler',
-          badgeBg: 'bg-purple-100 border-purple-300 text-purple-900',
-          role: 'Fundar Aldeia (3x)',
-          reqBuilding: 'residence',
-          reqLvl: 5,
-          cost: { wood: 1400, clay: 1400, iron: 1400, crop: 1200 },
-          trainSec: 60,
-          atk: 0,
-          def: 40,
-          speed: 10,
-          carry: 250,
-          upkeep: 2,
-        },
-      };
-
-      const UNIT_ORDER = [
-        'legionnaire',
-        'spearman',
-        'praetorian',
-        'equites',
-        'scout',
-        'catapult',
-        'settler',
-      ];
-
-      const ALLIANCE_NPCS = [
-        { name: 'Marcus Aurelius', role: 'Marechal', power: 1420 },
-        { name: 'Valéria Flávia', role: 'Intendente', power: 980 },
-        { name: 'Caio Crasso', role: 'Explorador', power: 760 },
-        { name: 'Lívia Drusila', role: 'Diplomata', power: 1150 },
-      ];
-
-      const FIELD_POSITIONS = [
-        { id: 1, type: 'wood', x: 35, y: 11 },
-        { id: 2, type: 'crop', x: 54, y: 10 },
-        { id: 3, type: 'wood', x: 71, y: 17 },
-        { id: 4, type: 'iron', x: 84, y: 31 },
-        { id: 5, type: 'clay', x: 88, y: 49 },
-        { id: 6, type: 'clay', x: 83, y: 68 },
-        { id: 7, type: 'iron', x: 70, y: 82 },
-        { id: 8, type: 'crop', x: 52, y: 88 },
-        { id: 9, type: 'crop', x: 33, y: 85 },
-        { id: 10, type: 'wood', x: 18, y: 74 },
-        { id: 11, type: 'clay', x: 11, y: 57 },
-        { id: 12, type: 'crop', x: 13, y: 37 },
-        { id: 13, type: 'iron', x: 22, y: 21 },
-        { id: 14, type: 'crop', x: 43, y: 27 },
-        { id: 15, type: 'clay', x: 64, y: 33 },
-        { id: 16, type: 'wood', x: 65, y: 63 },
-        { id: 17, type: 'iron', x: 38, y: 69 },
-        { id: 18, type: 'crop', x: 28, y: 48 },
-      ];
-
+// ... existing code ... -->
       const TRIBES = [
         'Acampamento Teutão',
         'Aldeia Gaulesa Rebelde',
@@ -361,6 +44,56 @@
         'Guarnição Nômade',
         'Posto Avançado Bárbaro',
       ];
+
+      // ======================================================================
+      // BIBLIOTECA DE ÍCONES VETORIAIS SVG TEMÁTICOS (ZERO EMOJIS DE SISTEMA)
+      // ======================================================================
+      function svgIcon(name, cls = 'w-4 h-4') {
+        const paths = {
+          wood: '<path d="M12 2L6 10h4l-3 6h10l-3-6h4L12 2z"/><path d="M12 16v6M9 22h6"/>',
+          clay: '<path d="M4 17l4-8 4 5 4-6 4 9H4z"/><path d="M3 20h18"/>',
+          iron: '<polygon points="12 3 20 8 20 16 12 21 4 16 4 8 12 3"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="4" y1="8" x2="20" y2="8"/>',
+          crop: '<path d="M12 22V7"/><path d="M12 11c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M12 11c3 0 5-2 5-5-3 0-5 2-5 5z"/><path d="M12 16c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M12 16c3 0 5-2 5-5-3 0-5 2-5 5z"/>',
+          legionnaire: '<path d="M14.5 3.5l6 6-11 11H3.5v-6l11-11z"/><path d="M13 5l6 6"/><path d="M3 21l4-4"/>',
+          spearman: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="7" x2="12" y2="17"/>',
+          praetorian: '<path d="M6 12a6 6 0 0112 0v5H6v-5z"/><path d="M12 2v4"/><path d="M9 3h6"/><path d="M9 17v3h6v-3"/>',
+          equites: '<path d="M19 7l-3-3-5 2-3 5-3 2v4h4l2-2 4 1 3-4 1-5z"/><circle cx="15" cy="7" r="1"/>',
+          scout: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.5"/>',
+          catapult: '<circle cx="7" cy="18" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M4 18h16"/><path d="M15 18L7 6"/><circle cx="6" cy="5" r="2"/><path d="M11 18v-5l4 5"/>',
+          settler: '<path d="M5 3v18"/><path d="M5 4h11l-2 4 2 4H5"/>',
+          nav_fields: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+          nav_center: '<path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M9 21v-6h6v6"/>',
+          nav_barracks: '<path d="M14.5 3.5l6 6-11 11H3.5v-6l11-11z"/><path d="M3.5 3.5l6 6 11 11h-6l-11-11z"/>',
+          nav_market: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-2 5h4l-2-5z"/><path d="M19 7l-2 5h4l-2-5z"/><path d="M8 21h8"/>',
+          nav_alliance: '<path d="M12 2l8 4v6c0 5.5-3.8 9.8-8 11-4.2-1.2-8-5.5-8-11V6l8-4z"/>',
+          nav_map: '<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>',
+          nav_reports: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
+          map_village: '<path d="M4 20h16"/><path d="M6 20V8l3-2 3 2 3-2 3 2v12"/><path d="M10 20v-5h4v5"/>',
+          map_barbarian: '<path d="M12 3c-4 0-7 3-7 7 0 2.5 1.3 4.6 3 5.8V19h8v-3.2c1.7-1.2 3-3.3 3-5.8 0-4-3-7-7-7z"/><circle cx="9.5" cy="10" r="1"/><circle cx="14.5" cy="10" r="1"/>',
+          map_oasis: '<path d="M4 18c2-1 4-1 6 0s4 1 6 0 4-1 4 0"/><path d="M12 17V8"/><path d="M12 8c-3-2-6-1-7 1"/><path d="M12 8c3-2 6-1 7 1"/><path d="M12 8c-2-3-5-3-6-1"/><path d="M12 8c2-3 5-3 6-1"/>',
+          map_valley: '<path d="M3 18l6-9 4 6 3-4 5 7H3z"/>',
+          caravan: '<rect x="3" y="6" width="13" height="9" rx="1.5"/><path d="M16 10h4l2 3v2h-6v-5z"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="18.5" cy="17.5" r="2"/>',
+          swap: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>',
+          cloud: '<path d="M17.5 19H9a7 7 0 116.71-9h1.79a4.5 4.5 0 110 9z"/>',
+          sync: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>',
+          alert: '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+          peace: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 12l6.3 6.3"/><path d="M12 12l-6.3 6.3"/>',
+          sound_on: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/>',
+          sound_off: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
+          save: '<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+          locate: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>',
+          arrow_up: '<polyline points="18 15 12 9 6 15"/>',
+          arrow_down: '<polyline points="6 9 12 15 18 9"/>',
+          arrow_left: '<polyline points="15 18 9 12 15 6"/>',
+          arrow_right: '<polyline points="9 18 15 12 9 6"/>',
+          check: '<polyline points="20 6 9 17 4 12"/>',
+          cross: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+          upload: '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+          download: '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+        };
+        const d = paths[name] || '<circle cx="12" cy="12" r="8"/>';
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${d}</svg>`;
+      }
 
       // ======================================================================
       // CLIENTE REST NATIVO DO SUPABASE (PRESERVADO 100%)
@@ -3079,4 +2812,4 @@
     })();
   </script>
 </body>
-  </html>
+</html>
