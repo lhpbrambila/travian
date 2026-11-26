@@ -36,7 +36,328 @@
     // ========================================================================
     (function () {
       const STORAGE_KEY = 'travian_idle_v1_3_ghpages_save';
-// ... existing code ... -->
+      const SESSION_KEY = 'travian_idle_v1_3_sb_session';
+      const DEFAULT_SEED = 'TERRA-MEDIA-01';
+      const PEACE_PERIOD_MS = 21 * 24 * 60 * 60 * 1000;
+      const MAP_MIN = -75;
+      const MAP_MAX = 75;
+      const VIEWPORT_SIZE = 7;
+      const MAX_FIELD_LEVEL = 10;
+      const MAX_BUILDING_LEVEL = 10;
+      const MAX_QUEUE_SIZE = 2;
+      const BASE_STORAGE = 800;
+      const MERCHANT_EXCHANGE_RATE = 0.75; // 200 por 150
+
+      const FIELD_PROD_TABLE = [5, 12, 22, 38, 62, 96, 145, 215, 310, 440, 620];
+      const STORAGE_BONUS_TABLE = [0, 1200, 2200, 3800, 6200, 9600, 14500, 21500, 31000, 44000, 62000];
+
+      const FIELD_CONFIG = {
+        wood: {
+          label: 'Madeira',
+          fieldName: 'Bosque',
+          iconName: 'wood',
+          baseCost: { wood: 40, clay: 100, iron: 50, crop: 60 },
+          baseTime: 15,
+          costMult: 1.65,
+          timeMult: 1.68,
+          badge: 'bg-emerald-950/80 text-emerald-200 border-emerald-700',
+          tile: 'from-emerald-700 to-emerald-900 border-emerald-400',
+          text: 'text-emerald-700',
+          light: 'text-emerald-400',
+          bar: 'bg-emerald-600',
+        },
+        clay: {
+          label: 'Barro',
+          fieldName: 'Poço de Barro',
+          iconName: 'clay',
+          baseCost: { wood: 80, clay: 40, iron: 80, crop: 50 },
+          baseTime: 15,
+          costMult: 1.65,
+          timeMult: 1.68,
+          badge: 'bg-orange-950/80 text-orange-200 border-orange-700',
+          tile: 'from-orange-700 to-amber-900 border-orange-400',
+          text: 'text-orange-700',
+          light: 'text-orange-400',
+          bar: 'bg-orange-600',
+        },
+        iron: {
+          label: 'Ferro',
+          fieldName: 'Mina de Ferro',
+          iconName: 'iron',
+          baseCost: { wood: 100, clay: 80, iron: 30, crop: 60 },
+          baseTime: 18,
+          costMult: 1.65,
+          timeMult: 1.68,
+          badge: 'bg-slate-800/90 text-slate-200 border-slate-600',
+          tile: 'from-slate-600 to-slate-800 border-slate-300',
+          text: 'text-slate-700',
+          light: 'text-slate-300',
+          bar: 'bg-slate-500',
+        },
+        crop: {
+          label: 'Cereal',
+          fieldName: 'Campo de Cereal',
+          iconName: 'crop',
+          baseCost: { wood: 70, clay: 90, iron: 70, crop: 20 },
+          baseTime: 12,
+          costMult: 1.65,
+          timeMult: 1.64,
+          badge: 'bg-amber-950/80 text-amber-200 border-amber-700',
+          tile: 'from-amber-500 to-yellow-700 border-amber-300',
+          text: 'text-amber-700',
+          light: 'text-amber-300',
+          bar: 'bg-amber-500',
+        },
+      };
+
+      const BUILDING_CONFIG = {
+        main_building: {
+          name: 'Edifício Principal',
+          tagline: 'Reduz tempo de construção',
+          desc: 'Sede administrativa da aldeia. Cada nível acima do 1 reduz em 4% o tempo de obras.',
+          baseCost: { wood: 70, clay: 40, iron: 60, crop: 20 },
+          baseTime: 20,
+          allowMultiple: false,
+          reqs: [],
+          grad: 'from-amber-700 to-stone-900 border-amber-400',
+        },
+        warehouse: {
+          name: 'Armazém',
+          tagline: 'Armazena Madeira, Barro e Ferro',
+          desc: 'Aumenta a capacidade máxima de estoque dos três recursos brutos.',
+          baseCost: { wood: 130, clay: 160, iron: 90, crop: 40 },
+          baseTime: 22,
+          allowMultiple: true,
+          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
+          grad: 'from-emerald-700 to-stone-900 border-emerald-400',
+        },
+        granary: {
+          name: 'Celeiro',
+          tagline: 'Armazena Cereal',
+          desc: 'Aumenta a capacidade máxima de armazenamento de cereal da aldeia.',
+          baseCost: { wood: 80, clay: 100, iron: 70, crop: 20 },
+          baseTime: 20,
+          allowMultiple: true,
+          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
+          grad: 'from-yellow-600 to-amber-900 border-yellow-300',
+        },
+        marketplace: {
+          name: 'Mercado',
+          tagline: 'Libera caravanas entre aldeias',
+          desc: 'Permite enviar recursos entre suas aldeias (750 de carga por nível) e negociar com mercadores (200 por 150).',
+          baseCost: { wood: 140, clay: 120, iron: 140, crop: 60 },
+          baseTime: 26,
+          allowMultiple: false,
+          reqs: [
+            { b: 'main_building', lvl: 3, label: 'Edifício Principal Nv. 3' },
+            { b: 'warehouse', lvl: 1, label: 'Armazém Nv. 1' },
+            { b: 'granary', lvl: 1, label: 'Celeiro Nv. 1' },
+          ],
+          grad: 'from-cyan-700 to-slate-900 border-cyan-400',
+        },
+        embassy: {
+          name: 'Embaixada',
+          tagline: 'Libera Aliança e bônus globais',
+          desc: 'Permite fundar sua Aliança, recrutar comandantes aliados e evoluir bônus permanentes de produção, ataque e comércio.',
+          baseCost: { wood: 180, clay: 150, iron: 130, crop: 70 },
+          baseTime: 30,
+          allowMultiple: false,
+          reqs: [{ b: 'main_building', lvl: 2, label: 'Edifício Principal Nv. 2' }],
+          grad: 'from-sky-700 to-indigo-950 border-sky-400',
+        },
+        barracks: {
+          name: 'Quartel',
+          tagline: 'Treina tropas e armas de cerco',
+          desc: 'Permite recrutar Infantaria, Lanceiros, Guarda Pretoriana (Nv.3), Cavalaria, Espiões e Catapultas (Nv.5).',
+          baseCost: { wood: 210, clay: 140, iron: 260, crop: 120 },
+          baseTime: 32,
+          allowMultiple: false,
+          reqs: [
+            { b: 'main_building', lvl: 3, label: 'Edifício Principal Nv. 3' },
+            { f: 'crop', lvl: 2, label: 'Campo de Cereal Nv. 2' },
+          ],
+          grad: 'from-red-700 to-stone-900 border-red-400',
+        },
+        cranny: {
+          name: 'Esconderijo',
+          tagline: 'Protege recursos contra saques',
+          desc: 'Oculta recursos de cada tipo contra ataques inimigos.',
+          baseCost: { wood: 40, clay: 50, iron: 30, crop: 10 },
+          baseTime: 16,
+          allowMultiple: true,
+          reqs: [{ b: 'main_building', lvl: 1, label: 'Edifício Principal Nv. 1' }],
+          grad: 'from-indigo-700 to-slate-900 border-indigo-400',
+        },
+        residence: {
+          name: 'Residência',
+          tagline: 'Libera Colonizadores (Nv.5+)',
+          desc: 'Permite recrutar Colonizadores para fundar novas aldeias pelo mundo.',
+          baseCost: { wood: 580, clay: 460, iron: 350, crop: 180 },
+          baseTime: 45,
+          allowMultiple: false,
+          reqs: [{ b: 'main_building', lvl: 5, label: 'Edifício Principal Nv. 5' }],
+          grad: 'from-purple-700 to-stone-900 border-purple-400',
+        },
+      };
+
+      const BUILDING_ORDER = [
+        'main_building',
+        'warehouse',
+        'granary',
+        'marketplace',
+        'embassy',
+        'barracks',
+        'cranny',
+        'residence',
+      ];
+
+      const UNIT_CONFIG = {
+        legionnaire: {
+          name: 'Infantaria Leve',
+          role: 'Ataque & Saque',
+          iconName: 'legionnaire',
+          badgeBg: 'bg-amber-100 border-amber-300 text-amber-900',
+          cost: { wood: 120, clay: 100, iron: 150, crop: 30 },
+          trainSec: 18,
+          atk: 45,
+          def: 30,
+          speed: 14,
+          carry: 60,
+          upkeep: 1,
+          reqBuilding: 'barracks',
+          reqLvl: 1,
+        },
+        spearman: {
+          name: 'Lanceiro',
+          role: 'Defesa Pesada',
+          iconName: 'spearman',
+          badgeBg: 'bg-sky-100 border-sky-300 text-sky-900',
+          cost: { wood: 100, clay: 130, iron: 55, crop: 30 },
+          trainSec: 16,
+          atk: 15,
+          def: 65,
+          speed: 12,
+          carry: 35,
+          upkeep: 1,
+          reqBuilding: 'barracks',
+          reqLvl: 1,
+        },
+        praetorian: {
+          name: 'Guarda Pretoriana',
+          role: 'Elite Equilibrada',
+          iconName: 'praetorian',
+          badgeBg: 'bg-indigo-100 border-indigo-300 text-indigo-900',
+          cost: { wood: 220, clay: 240, iron: 310, crop: 70 },
+          trainSec: 28,
+          atk: 85,
+          def: 95,
+          speed: 13,
+          carry: 75,
+          upkeep: 2,
+          reqBuilding: 'barracks',
+          reqLvl: 3,
+        },
+        equites: {
+          name: 'Cavalaria Rápida',
+          role: 'Assalto Veloz',
+          iconName: 'equites',
+          badgeBg: 'bg-emerald-100 border-emerald-300 text-emerald-900',
+          cost: { wood: 320, clay: 280, iron: 360, crop: 100 },
+          trainSec: 36,
+          atk: 125,
+          def: 50,
+          speed: 28,
+          carry: 140,
+          upkeep: 3,
+          reqBuilding: 'barracks',
+          reqLvl: 1,
+        },
+        scout: {
+          name: 'Espião',
+          role: 'Reconhecimento',
+          iconName: 'scout',
+          badgeBg: 'bg-stone-200 border-stone-400 text-stone-800',
+          cost: { wood: 90, clay: 80, iron: 40, crop: 20 },
+          trainSec: 12,
+          atk: 2,
+          def: 10,
+          speed: 38,
+          carry: 10,
+          upkeep: 1,
+          reqBuilding: 'barracks',
+          reqLvl: 1,
+        },
+        catapult: {
+          name: 'Catapulta de Cerco',
+          role: 'Demolição & Elite',
+          iconName: 'catapult',
+          badgeBg: 'bg-red-100 border-red-300 text-red-900',
+          cost: { wood: 650, clay: 520, iron: 780, crop: 210 },
+          trainSec: 55,
+          atk: 310,
+          def: 35,
+          speed: 8,
+          carry: 180,
+          upkeep: 5,
+          reqBuilding: 'barracks',
+          reqLvl: 5,
+        },
+        settler: {
+          name: 'Colonizador',
+          role: 'Fundar Aldeia (3x)',
+          iconName: 'settler',
+          badgeBg: 'bg-purple-100 border-purple-300 text-purple-900',
+          cost: { wood: 1400, clay: 1400, iron: 1400, crop: 1200 },
+          trainSec: 60,
+          atk: 0,
+          def: 40,
+          speed: 10,
+          carry: 250,
+          upkeep: 2,
+          reqBuilding: 'residence',
+          reqLvl: 5,
+        },
+      };
+
+      const UNIT_ORDER = [
+        'legionnaire',
+        'spearman',
+        'praetorian',
+        'equites',
+        'scout',
+        'catapult',
+        'settler',
+      ];
+
+      const ALLIANCE_NPCS = [
+        { id: 'npc_1', name: 'Legado Marcus', role: 'Estrategista', power: 420 },
+        { id: 'npc_2', name: 'Centuriã Helena', role: 'Comandante de Cavalaria', power: 680 },
+        { id: 'npc_3', name: 'Tribuno Cassius', role: 'Mestre de Suprimentos', power: 950 },
+        { id: 'npc_4', name: 'Prefeita Valéria', role: 'Engenheira de Cerco', power: 1320 },
+        { id: 'npc_5', name: 'Cônsul Aurelius', role: 'Guardião da Fronteira', power: 1750 },
+      ];
+
+      const FIELD_POSITIONS = [
+        { id: 1, type: 'wood', x: 35, y: 11 },
+        { id: 2, type: 'crop', x: 54, y: 10 },
+        { id: 3, type: 'wood', x: 71, y: 17 },
+        { id: 4, type: 'iron', x: 84, y: 31 },
+        { id: 5, type: 'clay', x: 88, y: 49 },
+        { id: 6, type: 'clay', x: 83, y: 68 },
+        { id: 7, type: 'iron', x: 70, y: 82 },
+        { id: 8, type: 'crop', x: 52, y: 88 },
+        { id: 9, type: 'crop', x: 33, y: 85 },
+        { id: 10, type: 'wood', x: 18, y: 74 },
+        { id: 11, type: 'clay', x: 11, y: 57 },
+        { id: 12, type: 'crop', x: 13, y: 37 },
+        { id: 13, type: 'iron', x: 22, y: 21 },
+        { id: 14, type: 'crop', x: 43, y: 27 },
+        { id: 15, type: 'clay', x: 64, y: 33 },
+        { id: 16, type: 'wood', x: 65, y: 63 },
+        { id: 17, type: 'iron', x: 38, y: 69 },
+        { id: 18, type: 'crop', x: 28, y: 48 },
+      ];
+
       const TRIBES = [
         'Acampamento Teutão',
         'Aldeia Gaulesa Rebelde',
@@ -2812,4 +3133,4 @@
     })();
   </script>
 </body>
-</html>
+  </html>
